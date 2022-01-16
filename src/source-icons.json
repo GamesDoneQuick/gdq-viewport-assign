@@ -1,0 +1,18 @@
+{
+  "wasapi_input_capture": "microphone.svg",
+  "wasapi_output_capture": "audio.svg",
+  "browser_source": "globe.svg",
+  "color_source_v3": "brush.svg",
+  "monitor_capture": "video.svg",
+	"game_capture": "gamepad.svg",
+	"image_source": "image.svg",
+	"slideshow": "slideshow.svg",
+	"ffmpeg_source": "media.svg",
+	"ndi_source": "default.svg",
+	"scene": "scene.svg",
+	"text_gdiplus_v2": "text.svg",
+	"dshow_input": "camera.svg",
+	"window_capture": "window.svg",
+	"group": "group.svg",
+	"text_ft2_source_v2": "text.svg"
+}
