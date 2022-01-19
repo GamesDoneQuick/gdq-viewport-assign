@@ -16,11 +16,21 @@ type obsSourceType =
   | 'group'
   | 'text_ft2_source_v2';
 
-type sceneItemRef = { 'scene-name': string; item: { id: number } };
+type sceneItemRef = {
+  'scene-name': string;
+  item: { id: number; name: string };
+};
 type viewport = {
   name: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  assignedFeeds: (sceneItemRef & { type: string })[];
 };
+type obsSceneItems = {
+  itemId: number;
+  sourceKind: string;
+  sourceName: string;
+  sourceType: string;
+}[];

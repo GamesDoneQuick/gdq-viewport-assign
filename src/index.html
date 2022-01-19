@@ -10,9 +10,14 @@
         height: 100%;
         margin: 0;
         font-family: Arial, Helvetica, sans-serif;
-        font-size: 12px;
+        font-size: 18px;
         color: #d8d8d8;
         overflow: hidden;
+				cursor: default;
+				user-select: none;
+      }
+      .obs-font {
+        font-size: 12px;
       }
       body {
         background-color: #1f1e1f;
@@ -25,11 +30,17 @@
         border: 1px solid #1f1e1f;
         display: flex;
         align-items: center;
-				cursor: default;
+        overflow: hidden;
       }
       #main {
         flex-grow: 1;
         position: relative;
+      }
+      #viewports {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
       #warning {
         position: absolute;
@@ -47,58 +58,85 @@
         transform: translate(-50%, -50%);
         position: absolute;
       }
+      #viewports-list {
+        display: flex;
+        flex-grow: 1;
+        flex-direction: column;
+      }
       #add-source {
         background-color: #3a393a;
         box-shadow: 1px 1px 4px 0px #00000085;
         position: absolute;
         width: 182px;
-				padding: 5px;
-        min-height: 182px;
-        bottom: 18px;
-        left: 14px;
+        padding: 3px;
+        top: 11px;
+        right: 14px;
+				z-index: 1;
       }
       .hide {
         width: 0 !important;
         height: 0 !important;
         opacity: 0;
       }
-			.title {
-				font-size: 1.5rem;
-			}
-      .scene-item {
+      .selection {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        margin: 4px;
+        margin-bottom: 10px;
+      }
+      .selection-item {
+        background-color: #4c4c4c;
+        border-radius: 3px;
+        padding: 7px;
+        padding-top: 4px;
+        padding-bottom: 3px;
+      }
+      .selection-item.selected {
+        background-color: #7a797a;
+      }
+      .viewport-header {
+        background-color: #3a393a;
+        height: 27px;
+        border: 1px solid #1f1e1f;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-left: 5px;
+        position: relative;
+      }
+      .viewport-sources {
+        flex-grow: 1;
+      }
+      .source {
         height: 17px;
         margin: 1px;
         position: relative;
-				cursor: default;
-      }
-      .scene-item.selected {
-        background-color: #302f30;
+				font-size: 12px;
       }
       .icon {
-        height: 16px;
-        margin-left: 3px;
-        margin-right: 8px;
-				cursor: default;
+        width: 16px;
+				margin-right: 5px;
       }
-      .icon.footer {
-        margin-left: 7px;
-        margin-right: 2px;
-      }
-      .scene-item-text {
+      .source-text {
+				margin-left: -2px;
         display: inline-block;
         position: absolute;
         top: 2px;
-				cursor: default;
       }
     </style>
   </head>
   <body>
     <div id="main">
+      <div id="viewports">
+        <div id="feed-select" class="selection"></div>
+        <div id="viewports-list"></div>
+      </div>
       <div id="warning">
         <div id="warning-msg">Loading...</div>
       </div>
     </div>
-    <div id="footer"><!-- <div id="add-source">Test</div> --></div>
+    <div id="footer"></div>
   </body>
   <script src="bundle.js"></script>
 </html>
