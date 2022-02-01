@@ -10,11 +10,14 @@ let screenshotBase64 = '';
 let connectedToOBS = false;
 let cropItem: null | (sceneItemRef & crop & { width: number; height: number }) =
   null;
-let targetCrop: crop;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
-let moveHandle: HTMLElement | null = null;
+let targetCrop: crop | null = null;
+let initialCrop: crop | null = null;
+let scale = 1;
+let cropWidthSide: 'left' | 'right' | null = null;
+let cropHeightSide: 'top' | 'bottom' | null = null;
 let clickLoc = { clientX: 0, clientY: 0 };
-let currentCropSpeed: number | null = null;
+let activelyCropping = false;
 let currentSceneViewports: viewport[] = [];
 let unassignedFeeds: viewport['assignedFeeds'] = [];
 let currentSceneFeedScenes: string[] = [];
@@ -33,68 +36,88 @@ const cropDiv = document.getElementById('primary-crop') as HTMLDivElement;
 const cropFrame = document.getElementById('crop-frame') as HTMLDivElement;
 const cropImg = document.getElementById('crop-image') as HTMLImageElement;
 const cropGuide = document.getElementById('crop-guide') as HTMLDivElement;
-function initDirectionOnClicks() {
-  document.querySelectorAll('.crop-direction').forEach((elem) => {
-    const dirDiv = elem as HTMLElement;
-    dirDiv.onclick = () => {
-      dirDivOnclick(dirDiv);
-    };
-  });
-}
-initDirectionOnClicks();
-function dirDivOnclick(dirDiv: HTMLElement) {
-  initCropDisplay();
-  document.querySelectorAll('.base').forEach((elem) => {
-    if (dirDiv === elem.parentElement) {
-      elem.classList.remove('hide');
-    } else elem.classList.add('hide');
-  });
-  document.querySelectorAll('.crop-icon').forEach((elem) => {
-    if (dirDiv === elem.parentElement) {
-      elem.classList.add('hide');
-    } else {
-      elem.classList.remove('hide');
-      elem.parentElement.onclick = () => {
-        dirDivOnclick(elem.parentElement);
-      };
-    }
-  });
-  cropSide = dirDiv.id.slice(0, -5) as typeof cropSide;
-  dirDiv.onclick = null;
-  refreshCropImage();
+type SvgPathInHtml = HTMLElement & SVGPathElement;
+const croppedSvg = document.getElementById('cropped') as SvgPathInHtml;
+const cropOutline = document.getElementById('crop-outline') as HTMLDivElement;
+function initZoomDirs() {
+	document.querySelectorAll('.zoom').forEach((elem) => {
+		const zoom = elem as HTMLImageElement;
+		const side = zoom.parentElement.id.slice(0, -5) as
+			| 'left'
+			| 'right'
+			| 'top'
+			| 'bottom';
+		if (cropSide == side) {zoom.src = 'assets/zoom_out.svg'} else zoom.src = 'assets/zoom_in.svg'
+	});
 }
 document.querySelectorAll('.handle').forEach((elem) => {
   const handle = elem as HTMLElement;
   handle.onmousedown = (e) => {
     if (e.button == 0) {
       clickLoc = { clientX: e.clientX, clientY: e.clientY };
-      moveHandle = handle;
+      cropWidthSide = null;
+      if (handle.classList.contains('left')) cropWidthSide = 'left';
+      if (handle.classList.contains('right')) cropWidthSide = 'right';
+      cropHeightSide = null;
+      if (handle.classList.contains('top')) cropHeightSide = 'top';
+      if (handle.classList.contains('bottom')) cropHeightSide = 'bottom';
+      initialCrop = {
+        left: cropItem.left,
+        right: cropItem.right,
+        top: cropItem.top,
+        bottom: cropItem.bottom,
+      };
     }
+  };
+});
+document.querySelectorAll('.zoom').forEach((elem) => {
+  const zoom = elem as HTMLImageElement;
+  const side = zoom.parentElement.id.slice(0, -5) as
+    | 'left'
+    | 'right'
+    | 'top'
+    | 'bottom';
+  zoom.onclick = () => {
+    if (cropSide != side) {
+      cropSide = side;
+      refreshCropImage();
+    } else {
+			cropSide = null;
+			refreshCropImage();
+		}
   };
 });
 document.querySelectorAll('.plus').forEach((elem) => {
   const plus = elem as HTMLElement;
+  const side = plus.parentElement.id.slice(0, -5) as
+    | 'left'
+    | 'right'
+    | 'top'
+    | 'bottom';
   plus.onclick = () => {
-    stepChange(1);
+    stepChange(side, 1);
   };
 });
 document.querySelectorAll('.minus').forEach((elem) => {
-  const plus = elem as HTMLElement;
-  plus.onclick = () => {
-    stepChange(-1);
+  const minus = elem as HTMLElement;
+  const side = minus.parentElement.id.slice(0, -5) as
+    | 'left'
+    | 'right'
+    | 'top'
+    | 'bottom';
+  minus.onclick = () => {
+    stepChange(side, -1);
   };
 });
-function stepChange(change: 1 | -1) {
-  if (!cropSide || !cropItem) {
-    obsError('"plus" crop error');
+function stepChange(side: 'left' | 'right' | 'top' | 'bottom', change: 1 | -1) {
+  if (!cropItem) {
+    obsError('step crop error');
   }
-  let targetCrop = cropItem[cropSide] + change;
+  let targetCrop = cropItem[side] + change;
   const sourceSize =
-    cropSide == 'left' || cropSide == 'right'
-      ? cropItem.width
-      : cropItem.height;
+    side == 'left' || side == 'right' ? cropItem.width : cropItem.height;
   let oppositeCrop = 0;
-  switch (cropSide) {
+  switch (side) {
     case 'left':
       oppositeCrop = cropItem.right;
       break;
@@ -109,16 +132,16 @@ function stepChange(change: 1 | -1) {
       break;
   }
   if (targetCrop + oppositeCrop > sourceSize)
-    targetCrop = sourceSize - oppositeCrop;
+    targetCrop = sourceSize - oppositeCrop - 1;
   if (targetCrop < 0) targetCrop = 0;
-  if (targetCrop != cropItem[cropSide]) {
+  if (targetCrop != cropItem[side]) {
     const newCrop: crop = {
       left: Math.round(cropItem.left),
       right: Math.round(cropItem.right),
       top: Math.round(cropItem.top),
       bottom: Math.round(cropItem.bottom),
     };
-    newCrop[cropSide] = targetCrop;
+    newCrop[side] = targetCrop;
     obs
       .send('SetSceneItemProperties', {
         'scene-name': cropItem['scene-name'],
@@ -129,131 +152,94 @@ function stepChange(change: 1 | -1) {
         bounds: {},
       })
       .then(() => {
-        cropItem[cropSide] = targetCrop;
+        cropItem[side] = targetCrop;
         refreshCropImage();
       })
       .catch(obsError);
   }
 }
 const controlsMove = (e: MouseEvent) => {
-  if (moveHandle && cropSide) {
-    const axis =
-      cropSide == 'left' || cropSide == 'right' ? 'clientX' : 'clientY';
-    let diff = (e[axis] - clickLoc[axis]) / 2;
-    if (diff > 50) {
-      diff = 50;
-      clickLoc[axis] = e[axis] - 100;
+  if ((!cropWidthSide && !cropHeightSide) || !cropItem) return;
+  let xDiff = 0;
+  let yDiff = 0;
+  targetCrop = {
+    left: initialCrop.left,
+    right: initialCrop.right,
+    top: initialCrop.top,
+    bottom: initialCrop.bottom,
+  };
+  if (cropWidthSide) {
+    xDiff = Math.round((e.clientX - clickLoc.clientX) / scale);
+    if (cropWidthSide == 'right') {
+      targetCrop.right -= xDiff;
+      if (targetCrop.right < 0) targetCrop.right = 0;
+      if (targetCrop.right + targetCrop.left >= cropItem.width - 10)
+        targetCrop.right = cropItem.width - targetCrop.left - 10;
+    } else {
+      targetCrop.left += xDiff;
+      if (targetCrop.left < 0) targetCrop.left = 0;
+      if (targetCrop.right + targetCrop.left >= cropItem.width - 10)
+        targetCrop.left = cropItem.width - targetCrop.right - 10;
     }
-    if (diff < -50) {
-      diff = -50;
-      clickLoc[axis] = e[axis] + 100;
-    }
-    if (cropSide == 'right' || cropSide == 'bottom') {
-      diff *= -1;
-    }
-    cropper(diff);
-    diff *= -2.6;
-    diff -= 50;
-    moveHandle.style.transform = `translate(-50%, ${diff}%)`;
   }
+  if (cropHeightSide) {
+    yDiff = Math.round((e.clientY - clickLoc.clientY) / scale);
+    if (cropHeightSide == 'bottom') {
+      targetCrop.bottom -= yDiff;
+      if (targetCrop.bottom < 0) targetCrop.bottom = 0;
+      if (targetCrop.bottom + targetCrop.top >= cropItem.height - 10)
+        targetCrop.bottom = cropItem.height - targetCrop.top - 10;
+    } else {
+      targetCrop.top += yDiff;
+      if (targetCrop.top < 0) targetCrop.top = 0;
+      if (targetCrop.bottom + targetCrop.top >= cropItem.height - 10)
+        targetCrop.top = cropItem.height - targetCrop.bottom - 10;
+    }
+  }
+  cropItemToTarget();
 };
 const controlsStop = () => {
-  if (moveHandle) moveHandle.style.transform = '';
-  moveHandle = null;
-  currentCropSpeed = null;
+  cropWidthSide = null;
+  cropHeightSide = null;
+  initialCrop = null;
 };
 document.onmousemove = controlsMove;
 document.onmouseup = controlsStop;
-function cropper(newSpeed?: number) {
-  if (!cropItem || !cropSide) {
-    currentCropSpeed = null;
-    obsError("Can't crop nothing");
+function cropItemToTarget(check?: 'check') {
+  if (!cropItem || !targetCrop) {
+    console.error("Can't crop without item and crop");
+    activelyCropping = false;
     return;
   }
-  if (newSpeed == undefined) {
-    //self-called
-    if (currentCropSpeed === null) return;
-  } else {
-    //called by user input
-    if (newSpeed == 0) {
-      currentCropSpeed = null;
-      return;
-    }
-    if (currentCropSpeed !== null) {
-      currentCropSpeed = newSpeed;
-      return;
-    } else {
-      currentCropSpeed = newSpeed;
-      targetCrop = {
-        left: cropItem.left,
-        right: cropItem.right,
-        top: cropItem.top,
-        bottom: cropItem.bottom,
-      };
-    }
-  }
-  let adjust = (currentCropSpeed / 5) ** 2;
-  if (currentCropSpeed < 0) adjust *= -1;
-  targetCrop[cropSide] += adjust;
-  let oppositeCrop = 0;
-  switch (cropSide) {
-    case 'left':
-      oppositeCrop = targetCrop.right;
-      break;
-    case 'right':
-      oppositeCrop = targetCrop.left;
-      break;
-    case 'top':
-      oppositeCrop = targetCrop.bottom;
-      break;
-    case 'bottom':
-      oppositeCrop = targetCrop.top;
-      break;
-  }
-  const sourceSize =
-    cropSide == 'left' || cropSide == 'right'
-      ? cropItem.width
-      : cropItem.height;
-  if (targetCrop[cropSide] + oppositeCrop > sourceSize)
-    targetCrop[cropSide] = sourceSize - oppositeCrop;
-  if (targetCrop[cropSide] < 0) targetCrop[cropSide] = 0;
-  const newCrop: crop = {
-    left: Math.round(targetCrop.left),
-    right: Math.round(targetCrop.right),
-    top: Math.round(targetCrop.top),
-    bottom: Math.round(targetCrop.bottom),
-  };
+  if (activelyCropping && !check) return;
+  activelyCropping = true;
   if (
-    newCrop.left != cropItem.left ||
-    newCrop.right != cropItem.right ||
-    newCrop.top != cropItem.top ||
-    newCrop.bottom != cropItem.bottom
+    targetCrop.left != cropItem.left ||
+    targetCrop.right != cropItem.right ||
+    targetCrop.top != cropItem.top ||
+    targetCrop.bottom != cropItem.bottom
   ) {
     obs
       .send('SetSceneItemProperties', {
         'scene-name': cropItem['scene-name'],
         item: cropItem.item,
-        crop: newCrop,
+        crop: targetCrop,
         position: {},
         scale: {},
         bounds: {},
       })
       .then(() => {
-        cropItem.left = newCrop.left;
-        cropItem.right = newCrop.right;
-        cropItem.top = newCrop.top;
-        cropItem.bottom = newCrop.bottom;
+        cropItem.left = targetCrop.left;
+        cropItem.right = targetCrop.right;
+        cropItem.top = targetCrop.top;
+        cropItem.bottom = targetCrop.bottom;
         refreshCropImage();
         setTimeout(() => {
-          cropper();
-        }, 100);
+          cropItemToTarget('check');
+        }, 30);
       })
       .catch(obsError);
-  } else {
-    setTimeout(() => {
-      cropper();
-    }, 100);
-  }
+  } else activelyCropping = false;
 }
 document.getElementById('camera-crop').onclick = () => {
   cropViewportFeed('camera');
@@ -637,7 +623,7 @@ function refreshCropDiv() {
     .send('TakeSourceScreenshot', {
       sourceName: cropItem.item.name,
       saveToFilePath: obsScreenshotURL,
-      embedPictureFormat: 'jpg',
+      embedPictureFormat: 'png',
     })
     .then((data) => {
       screenshotBase64 = data.img;
@@ -654,21 +640,24 @@ function refreshCropDiv() {
 
 function initCropDisplay() {
   cropImg.src = '';
+  setSvgCropPath();
   cropFrame.style.opacity = '0';
   cropFrame.style.width = '';
   cropFrame.style.height = '';
   cropImg.style.transform = '';
   cropGuide.style.opacity = '0';
+  cropOutline.style.opacity = '0';
+	initZoomDirs()
 }
 
 function refreshCropImage() {
   initCropDisplay();
   const fullFrameX = cropDiv.clientWidth;
   const fullFrameY = cropDiv.clientHeight;
-  const changeableCropItem = JSON.parse(
-    JSON.stringify(cropItem)
-  ) as typeof cropItem;
   if (cropSide) {
+    const changeableCropItem = JSON.parse(
+      JSON.stringify(cropItem)
+    ) as typeof cropItem;
     cropGuide.className = cropSide;
     cropGuide.style.opacity = '1';
     let centerY = -1;
@@ -694,37 +683,71 @@ function refreshCropImage() {
     changeableCropItem.right = cropItem.width - centerX - xSize;
     changeableCropItem.top = centerY - ySize;
     changeableCropItem.bottom = cropItem.height - centerY - ySize;
+    const croppedSize = {
+      x:
+        changeableCropItem.width -
+        (changeableCropItem.left + changeableCropItem.right),
+      y:
+        changeableCropItem.height -
+        (changeableCropItem.top + changeableCropItem.bottom),
+    };
+    let shrinkAxis: 'width' | 'height' = 'width';
+    let aspectRatio = croppedSize.x / croppedSize.y;
+    if (fullFrameX / fullFrameY < aspectRatio) {
+      shrinkAxis = 'height';
+      aspectRatio = 1 / aspectRatio;
+    }
+    const [largeAxis, refSize, refAxis]: [
+      'width' | 'height',
+      number,
+      'x' | 'y'
+    ] =
+      shrinkAxis == 'width'
+        ? ['height', fullFrameY, 'y']
+        : ['width', fullFrameX, 'x'];
+    cropFrame.style[largeAxis] = refSize + 'px';
+    cropFrame.style[shrinkAxis] = refSize * aspectRatio + 'px';
+    scale = refSize / croppedSize[refAxis];
+    const translateX =
+      ((scale - 1) * changeableCropItem.width) / 2 -
+      changeableCropItem.left * scale;
+    const translateY =
+      ((scale - 1) * changeableCropItem.height) / 2 -
+      changeableCropItem.top * scale;
+    cropImg.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
+    cropFrame.style.opacity = '1';
+  } else {
+    const aspectRatio = cropItem.width / cropItem.height;
+    let width = fullFrameX;
+    let height = fullFrameY;
+    scale = fullFrameY / cropItem.height;
+    if (fullFrameX / fullFrameY < aspectRatio) {
+      height = width / aspectRatio;
+      scale = fullFrameX / cropItem.width;
+    } else width = aspectRatio * height;
+    cropFrame.style.width = width.toString() + 'px';
+    cropFrame.style.height = height.toString() + 'px';
+    const translateX = ((scale - 1) * cropItem.width) / 2;
+    const translateY = ((scale - 1) * cropItem.height) / 2;
+    cropImg.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
+    setSvgCropPath(cropItem);
+    cropOutline.style.width =
+      (
+        (cropItem.width - cropItem.left - cropItem.right) * scale +
+        2
+      ).toString() + 'px';
+    cropOutline.style.height =
+      (
+        (cropItem.height - cropItem.top - cropItem.bottom) * scale +
+        2
+      ).toString() + 'px';
+    cropOutline.style.left = (cropItem.left * scale - 1).toString() + 'px';
+    cropOutline.style.top = (cropItem.top * scale - 1).toString() + 'px';
+    cropOutline.style.transform = `translate(${translateX}, ${translateY})`;
+    cropOutline.style.opacity = '1';
+    cropFrame.style.opacity = '1';
   }
-  const croppedSize = {
-    x:
-      changeableCropItem.width -
-      (changeableCropItem.left + changeableCropItem.right),
-    y:
-      changeableCropItem.height -
-      (changeableCropItem.top + changeableCropItem.bottom),
-  };
-  let shrinkAxis: 'width' | 'height' = 'width';
-  let aspectRatio = croppedSize.x / croppedSize.y;
-  if (fullFrameX / fullFrameY < aspectRatio) {
-    shrinkAxis = 'height';
-    aspectRatio = 1 / aspectRatio;
-  }
-  const [largeAxis, refSize, refAxis]: ['width' | 'height', number, 'x' | 'y'] =
-    shrinkAxis == 'width'
-      ? ['height', fullFrameY, 'y']
-      : ['width', fullFrameX, 'x'];
-  cropFrame.style[largeAxis] = refSize + 'px';
-  cropFrame.style[shrinkAxis] = refSize * aspectRatio + 'px';
   cropImg.src = screenshotBase64;
-  const scale = refSize / croppedSize[refAxis];
-  const translateX =
-    ((scale - 1) * changeableCropItem.width - 1) / 2 -
-    changeableCropItem.left * scale;
-  const translateY =
-    ((scale - 1) * changeableCropItem.height) / 2 -
-    changeableCropItem.top * scale;
-  cropImg.style.transform = `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
-  cropFrame.style.opacity = '1';
 }
 
 async function selectFeed(feed: string) {
@@ -757,7 +780,6 @@ function refreshFooter() {
     icon.src = 'assets/revert.svg';
     icon.onclick = () => {
       cropSide = null;
-      initDirectionOnClicks();
       if (!cropItem) {
         obsError('No cropItem');
         return;
@@ -784,12 +806,11 @@ function refreshFooter() {
     icon = document.createElement('img');
     icon.width = 16;
     icon.classList.add('icon', 'footer');
-    icon.src = 'assets/close.svg';
+    icon.src = 'assets/check.svg';
     icon.onclick = () => {
       cropItem = null;
       cropSide = null;
       refreshViewportsDiv();
-      initDirectionOnClicks();
     };
     footer.appendChild(icon);
   } else {
@@ -906,6 +927,7 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
     obsError('No cropItem');
     return;
   }
+	cropSide = null;
   const y1 = 0.124; //always game1 to webcam gap
   const y2 = 0.546; //game1 to game2 gap
   const x1 = 0.176; //webcam y/ game2 y
@@ -1059,6 +1081,21 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
       refreshCropImage();
     })
     .catch(obsError);
+}
+
+function setSvgCropPath(crop?: typeof cropItem) {
+  if (!crop) {
+    croppedSvg.setAttribute('d', 'M0,0V1H1V0ZM0,0H1V1H0Z');
+    return;
+  }
+  const left = crop.left / crop.width;
+  const top = crop.top / crop.height;
+  const right = 1 - crop.right / crop.width;
+  const bottom = 1 - crop.bottom / crop.height;
+  croppedSvg.setAttribute(
+    'd',
+    `M${left},${top}V${bottom}H${right}V${top}ZM0,0H1V1H0Z`
+  );
 }
 
 //autocrop helpers:

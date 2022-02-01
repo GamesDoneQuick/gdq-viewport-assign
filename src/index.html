@@ -4,11 +4,8 @@
     <meta charset="UTF-8" />
     <title>GDQ OBS Viewports</title>
     <link rel="shortcut icon" href="#" />
-    <link rel="stylesheet" type="text/css" href="joystick.css" />
+    <!-- <link rel="stylesheet" type="text/css" href="joystick.css" /> -->
     <style>
-      :root {
-        --joystick-width: 18vh;
-      }
       body,
       html {
         height: 100%;
@@ -38,8 +35,8 @@
         display: flex;
         align-items: center;
         overflow: hidden;
-				padding-right: 5px;
-				justify-content: flex-end;
+        padding-right: 5px;
+        justify-content: flex-end;
       }
       #main {
         flex-grow: 1;
@@ -111,6 +108,12 @@
         overflow: hidden;
         position: relative;
       }
+      #crop-outline {
+        box-sizing: border-box;
+        border: 2px solid rgb(255, 0, 0);
+        position: absolute;
+        opacity: 0;
+      }
       #crop-guide {
         position: absolute;
         background: repeating-linear-gradient(
@@ -129,21 +132,21 @@
         left: 0;
         top: 0;
       }
-			#crop-guide.right {
+      #crop-guide.right {
         border-left: 1px solid rgb(255, 255, 255);
         height: 100%;
         width: 50%;
         right: 0;
         top: 0;
       }
-			#crop-guide.top {
+      #crop-guide.top {
         border-bottom: 1px solid rgb(255, 255, 255);
         height: 50%;
         width: 100%;
         left: 0;
         top: 0;
       }
-			#crop-guide.bottom {
+      #crop-guide.bottom {
         border-top: 1px solid rgb(255, 255, 255);
         height: 50%;
         width: 100%;
@@ -165,7 +168,7 @@
         justify-content: space-around;
         margin: 4px;
         margin-bottom: 10px;
-				align-items: center;
+        align-items: center;
       }
       .selection-item {
         background-color: #4c4c4c;
@@ -211,11 +214,59 @@
       .crop-direction {
         display: flex;
       }
+      .handle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: red;
+        left: 50%;
+        top: 50%;
+      }
+      .handle.top {
+        top: 0;
+        transform: translate(-50%, -50%);
+        cursor: ns-resize;
+      }
+      .handle.bottom {
+        top: unset;
+        bottom: 0;
+        transform: translate(-50%, 50%);
+        cursor: ns-resize;
+      }
+      .handle.left {
+        left: 0;
+        transform: translate(-50%, -50%);
+        cursor: ew-resize;
+      }
+      .handle.right {
+        left: unset;
+        right: 0;
+        transform: translate(50%, -50%);
+        cursor: ew-resize;
+      }
+      .handle.top.left {
+        cursor: nwse-resize;
+      }
+      .handle.bottom.right {
+        transform: translate(50%, 50%);
+        cursor: nwse-resize;
+      }
+      .handle.top.right {
+        transform: translate(50%, -50%);
+        cursor: nesw-resize;
+      }
+      .handle.bottom.left {
+        transform: translate(-50%, 50%);
+        cursor: nesw-resize;
+      }
       .source-text {
         margin-left: -2px;
         display: inline-block;
         position: absolute;
         top: 2px;
+      }
+      img.zoom.in {
+        src: 'assets/zoom_in.svg';
       }
     </style>
   </head>
@@ -227,7 +278,7 @@
       </div>
       <div id="crop" class="hide">
         <div id="autocrop" class="selection">
-					Stream crop: 
+          Stream crop:
           <div id="camera-crop" class="selection-item">Camera</div>
           <div id="game1-crop" class="selection-item">Game 1</div>
           <div id="game2-crop" class="selection-item">Game 2</div>
@@ -235,72 +286,81 @@
         <div id="crop-grid">
           <div
             id="top-crop"
-            style="
-              grid-column: 2 / 3;
-              grid-row: 1 / 2;
-              transform: rotate(180deg);
-            "
+            style="grid-column: 2 / 3; grid-row: 1 / 2"
             class="crop-direction"
           >
-            <div class="base hide">
-              <div class="plus">+</div>
-              <div class="minus">–</div>
-              <div class="track"></div>
-              <div class="handle"></div>
-            </div>
-            <img src="assets/crop_left.svg" class="crop-icon" />
+            <img src="assets/up.svg" class="crop-icon minus" />
+            <img src="assets/down.svg" class="crop-icon plus" />
+            <img src="assets/zoom_in.svg" class="crop-icon zoom" />
           </div>
           <div
             id="left-crop"
-            style="
-              grid-column: 1 / 2;
-              grid-row: 2 / 3;
-              transform: rotate(90deg);
-            "
+            style="grid-column: 1 / 2; grid-row: 2 / 3; flex-direction: column"
             class="crop-direction"
           >
-            <div class="base hide">
-              <div class="plus">+</div>
-              <div class="minus">–</div>
-              <div class="track"></div>
-              <div class="handle"></div>
-            </div>
-            <img src="assets/crop_left.svg" class="crop-icon" />
+            <img src="assets/left.svg" class="crop-icon minus" />
+            <img src="assets/right.svg" class="crop-icon plus" />
+            <img src="assets/zoom_in.svg" class="crop-icon zoom" />
           </div>
           <div
             id="right-crop"
-            style="
-              grid-column: 3 / 4;
-              grid-row: 2 / 3;
-              transform: rotate(270deg);
-            "
+            style="grid-column: 3 / 4; grid-row: 2 / 3; flex-direction: column"
             class="crop-direction"
           >
-            <div class="base hide">
-              <div class="plus">+</div>
-              <div class="minus">–</div>
-              <div class="track"></div>
-              <div class="handle"></div>
-            </div>
-            <img src="assets/crop_left.svg" class="crop-icon" />
+            <img src="assets/right.svg" class="crop-icon minus" />
+            <img src="assets/left.svg" class="crop-icon plus" />
+            <img src="assets/zoom_in.svg" class="crop-icon zoom" />
           </div>
           <div
             id="bottom-crop"
-            style="grid-column: 2 / 3; grid-row: 3 / 4; transform: rotate(0deg)"
+            style="grid-column: 2 / 3; grid-row: 3 / 4"
             class="crop-direction"
           >
-            <div class="base hide">
-              <div class="plus">+</div>
-              <div class="minus">–</div>
-              <div class="track"></div>
-              <div class="handle"></div>
-            </div>
-            <img src="assets/crop_left.svg" class="crop-icon" />
+            <img src="assets/down.svg" class="crop-icon minus" />
+            <img src="assets/up.svg" class="crop-icon plus" />
+            <img src="assets/zoom_in.svg" class="crop-icon zoom" />
           </div>
           <div id="primary-crop">
             <div id="crop-frame">
-              <img id="crop-image" crossorigin="use-credentials" />
+              <img id="crop-image" style="position: absolute" />
               <div id="crop-guide" class="left"></div>
+              <svg
+                style="width: 100%; height: 100%; position: absolute"
+                viewBox="0 0 1 1"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient
+                    id="fill"
+                    x1="0"
+                    x2=".064"
+                    y1="0"
+                    y2=".036"
+                    spreadMethod="repeat"
+                  >
+                    <stop offset="0%" stop-color="white" stop-opacity="0" />
+                    <stop offset="50%" stop-color="white" stop-opacity="0" />
+                    <stop offset="50%" stop-color="white" stop-opacity=".5" />
+                    <stop offset="100%" stop-color="white" stop-opacity=".5" />
+                  </linearGradient>
+                </defs>
+                <path
+                  id="cropped"
+                  d="M0,0V1H1V0Z"
+                  fill="url(#fill)"
+                  fill-rule="evenodd"
+                ></path>
+              </svg>
+              <div id="crop-outline">
+                <div class="handle top left"></div>
+                <div class="handle top"></div>
+                <div class="handle top right"></div>
+                <div class="handle left"></div>
+                <div class="handle right"></div>
+                <div class="handle bottom left"></div>
+                <div class="handle bottom"></div>
+                <div class="handle bottom right"></div>
+              </div>
             </div>
           </div>
         </div>
