@@ -8,6 +8,7 @@ const screenshotUrl = window.location.href;
 const obsScreenshotURL = screenshotUrl.slice(8, -10) + 'screenshot.jpg';
 let screenshotBase64 = '';
 let connectedToOBS = false;
+let obsConnectionError = '';
 let cropItem: null | (sceneItemRef & crop & { width: number; height: number }) =
   null;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
@@ -30,6 +31,12 @@ let inInit = false;
 const sourceIcons: {
   [key in obsSourceType]: string;
 } = require('./source-icons.json');
+let obsPort = 4444;
+let obsPassword = '';
+if (localStorage.getItem('obsPort'))
+  obsPort = parseInt(localStorage.getItem('obsPort'));
+if (localStorage.getItem('obsPassword'))
+  obsPassword = localStorage.getItem('obsPassword');
 
 //setup cropping controls
 const cropDiv = document.getElementById('primary-crop') as HTMLDivElement;
@@ -40,15 +47,17 @@ type SvgPathInHtml = HTMLElement & SVGPathElement;
 const croppedSvg = document.getElementById('cropped') as SvgPathInHtml;
 const cropOutline = document.getElementById('crop-outline') as HTMLDivElement;
 function initZoomDirs() {
-	document.querySelectorAll('.zoom').forEach((elem) => {
-		const zoom = elem as HTMLImageElement;
-		const side = zoom.parentElement.id.slice(0, -5) as
-			| 'left'
-			| 'right'
-			| 'top'
-			| 'bottom';
-		if (cropSide == side) {zoom.src = 'assets/zoom_out.svg'} else zoom.src = 'assets/zoom_in.svg'
-	});
+  document.querySelectorAll('.zoom').forEach((elem) => {
+    const zoom = elem as HTMLImageElement;
+    const side = zoom.parentElement.id.slice(0, -5) as
+      | 'left'
+      | 'right'
+      | 'top'
+      | 'bottom';
+    if (cropSide == side) {
+      zoom.src = 'assets/zoom_out.svg';
+    } else zoom.src = 'assets/zoom_in.svg';
+  });
 }
 document.querySelectorAll('.handle').forEach((elem) => {
   const handle = elem as HTMLElement;
@@ -82,9 +91,9 @@ document.querySelectorAll('.zoom').forEach((elem) => {
       cropSide = side;
       refreshCropImage();
     } else {
-			cropSide = null;
-			refreshCropImage();
-		}
+      cropSide = null;
+      refreshCropImage();
+    }
   };
 });
 document.querySelectorAll('.plus').forEach((elem) => {
@@ -266,26 +275,29 @@ function showWarning(msg: string) {
 
 const obs = new obsWebsocketJs();
 function connectToOBS() {
+  obsConnectionError = '';
   showWarning('Connecting dashboard to OBS');
   obs
-    .connect({ address: 'localhost:4444', password: 'pbmax' })
+    .connect({ address: 'localhost:' + obsPort, password: obsPassword })
     .then(() => {
       connectedToOBS = true;
       hideWarning();
       initOBS();
     })
     .catch((err) => {
-      showWarning('Connection error: ' + err + '</BR>Retrying...');
+      if (err?.error) err = err.error;
+      obsConnectionError = err;
+      showWarning('Connection error: ' + err);
+      refreshFooter();
     });
 }
 connectToOBS();
 refreshFooter();
 
 obs.on('ConnectionClosed', () => {
-  showWarning('OBS connection closed. Reconnecting...');
-  setTimeout(() => {
-    connectToOBS();
-  }, 5000);
+  if (!obsConnectionError) showWarning('OBS connection closed.');
+  connectedToOBS = false;
+  refreshFooter();
 });
 
 const reInitEvents = [
@@ -326,7 +338,6 @@ obs.on('SceneItemVisibilityChanged', (data) => {
 });
 
 function initOBS() {
-  //console.trace()
   if (!connectedToOBS) {
     obsError("Can't init, not connected");
     return;
@@ -647,7 +658,7 @@ function initCropDisplay() {
   cropImg.style.transform = '';
   cropGuide.style.opacity = '0';
   cropOutline.style.opacity = '0';
-	initZoomDirs()
+  initZoomDirs();
 }
 
 function refreshCropImage() {
@@ -814,12 +825,67 @@ function refreshFooter() {
     };
     footer.appendChild(icon);
   } else {
-    const icon = document.createElement('img');
+    let icon = document.createElement('img');
+    if (!connectedToOBS) {
+      icon.width = 16;
+      icon.classList.add('icon', 'footer');
+      icon.src = 'assets/revert.svg';
+      icon.onclick = () => {
+        connectToOBS();
+      };
+      footer.appendChild(icon);
+    }
+    icon = document.createElement('img');
     icon.width = 16;
     icon.classList.add('icon', 'footer');
     icon.src = 'assets/general.svg';
     icon.onclick = () => {
-      //adjust settings?
+      setTimeout(() => {
+        if (document.querySelectorAll('.pop-up').length == 0) {
+          const settingsBox = document.createElement('div');
+          settingsBox.classList.add('pop-up');
+          settingsBox.style.top = 'unset';
+          settingsBox.style.bottom = '25px';
+          settingsBox.style.zIndex = '9999';
+          const portDiv = document.createElement('div');
+          portDiv.className = 'setup-item';
+          portDiv.innerHTML = 'Port: ';
+          const port = document.createElement('input');
+          port.style.float = 'right';
+          port.value = obsPort.toString();
+          port.oninput = () => {
+            const maybe = parseInt(port.value);
+            if (maybe.toString() == port.value) {
+              obsPort = maybe;
+            } else port.value = obsPort.toString();
+          };
+          portDiv.appendChild(port);
+          settingsBox.appendChild(portDiv);
+          const pwdDiv = document.createElement('div');
+          pwdDiv.className = 'setup-item';
+          pwdDiv.innerHTML = 'Password: ';
+          const pwd = document.createElement('input');
+          pwd.value = obsPassword;
+          pwd.type = 'password';
+          pwd.oninput = () => {
+            obsPassword = pwd.value;
+          };
+          pwdDiv.appendChild(pwd);
+          settingsBox.appendChild(pwdDiv);
+          document.onclick = (e) => {
+            if (
+              e.target !== settingsBox &&
+              !settingsBox.contains(e.target as Node)
+            ) {
+              document.onclick = null;
+              localStorage.setItem('obsPort', obsPort.toString());
+              localStorage.setItem('obsPassword', obsPassword);
+              footer.removeChild(settingsBox);
+            }
+          };
+          footer.appendChild(settingsBox);
+        }
+      }, 1);
     };
     footer.appendChild(icon);
   }
@@ -832,7 +898,7 @@ async function addSourceOnclick(
 ) {
   await new Promise((res) => setTimeout(res, 1)); //allow click to propagate first;
   const addSourceDiv = document.createElement('div');
-  addSourceDiv.id = 'add-source';
+  addSourceDiv.classList.add('pop-up');
   for (let i = 0; i < videoFeeds.length; i++) {
     const sourceDiv = document.createElement('div');
     sourceDiv.classList.add('source');
@@ -927,7 +993,7 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
     obsError('No cropItem');
     return;
   }
-	cropSide = null;
+  cropSide = null;
   const y1 = 0.124; //always game1 to webcam gap
   const y2 = 0.546; //game1 to game2 gap
   const x1 = 0.176; //webcam y/ game2 y
