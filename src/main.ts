@@ -46,6 +46,60 @@ const cropGuide = document.getElementById('crop-guide') as HTMLDivElement;
 type SvgPathInHtml = HTMLElement & SVGPathElement;
 const croppedSvg = document.getElementById('cropped') as SvgPathInHtml;
 const cropOutline = document.getElementById('crop-outline') as HTMLDivElement;
+document.onkeydown = (e) => {
+  if (cropItem) {
+    if (e.key == 'ArrowUp' && e.shiftKey == true && e.altKey == false) {
+      stepChange('top', -1);
+    }
+    if (e.key == 'ArrowUp' && e.shiftKey == false && e.altKey == true) {
+      stepChange('bottom', 1);
+    }
+    if (e.key == 'ArrowLeft' && e.shiftKey == true && e.altKey == false) {
+      stepChange('left', -1);
+    }
+    if (e.key == 'ArrowLeft' && e.shiftKey == false && e.altKey == true) {
+      stepChange('right', 1);
+    }
+    if (e.key == 'ArrowRight' && e.shiftKey == true && e.altKey == false) {
+      stepChange('left', 1);
+    }
+    if (e.key == 'ArrowRight' && e.shiftKey == false && e.altKey == true) {
+      stepChange('right', -1);
+    }
+    if (e.key == 'ArrowDown' && e.shiftKey == true && e.altKey == false) {
+      stepChange('top', 1);
+    }
+    if (e.key == 'ArrowDown' && e.shiftKey == false && e.altKey == true) {
+      stepChange('bottom', -1);
+    }
+		if (cropSide && e.shiftKey == false && e.altKey == false) {
+			if (e.key == 'ArrowUp' && cropSide == 'top') {
+				stepChange('top', -1)
+			}
+			if (e.key == 'ArrowUp' && cropSide == 'bottom') {
+				stepChange('bottom', 1)
+			}
+			if (e.key == 'ArrowDown' && cropSide == 'top') {
+				stepChange('top', 1)
+			}
+			if (e.key == 'ArrowDown' && cropSide == 'bottom') {
+				stepChange('bottom', -1)
+			}
+			if (e.key == 'ArrowLeft' && cropSide == 'left') {
+				stepChange('left', -1)
+			}
+			if (e.key == 'ArrowLeft' && cropSide == 'right') {
+				stepChange('right', 1)
+			}
+			if (e.key == 'ArrowRight' && cropSide == 'left') {
+				stepChange('left', 1)
+			}
+			if (e.key == 'ArrowRight' && cropSide == 'right') {
+				stepChange('right', -1)
+			}
+		}
+  }
+};
 function initZoomDirs() {
   document.querySelectorAll('.zoom').forEach((elem) => {
     const zoom = elem as HTMLImageElement;
@@ -216,7 +270,7 @@ document.onmousemove = controlsMove;
 document.onmouseup = controlsStop;
 function cropItemToTarget(check?: 'check') {
   if (!cropItem || !targetCrop) {
-    console.error("Can't crop without item and crop");
+    obsError("Can't crop without item and crop");
     activelyCropping = false;
     return;
   }
