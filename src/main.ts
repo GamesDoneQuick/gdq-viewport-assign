@@ -541,24 +541,6 @@ async function refreshViewportsDiv() {
   document.getElementById('viewports').classList.remove('hide');
   document.getElementById('crop').classList.add('hide');
   cropImg.src = '';
-  const feedSelect = document.getElementById('feed-select');
-  feedSelect.innerHTML = '';
-  for (let i = 0; i < currentSceneFeedScenes.length; i++) {
-    const feedBtn = document.createElement('div');
-    feedBtn.classList.add('selection-item');
-    if (currentSceneFeedScenes[i] == selectedFeedsScene)
-      feedBtn.classList.add('selected');
-    feedBtn.innerHTML = currentSceneFeedScenes[i];
-    feedBtn.onclick = async () => {
-      await selectFeed(currentSceneFeedScenes[i]);
-      for (let i = 0; i < feedSelect.children.length; i++) {
-        if (feedSelect.children[i].innerHTML == selectedFeedsScene) {
-          feedSelect.children[i].classList.add('selected');
-        } else feedSelect.children[i].classList.remove('selected');
-      }
-    };
-    feedSelect.appendChild(feedBtn);
-  }
   const listDiv = document.getElementById('viewports-list');
   listDiv.innerHTML = '';
   for (let i = 0; i <= currentSceneViewports.length; i++) {
@@ -813,25 +795,6 @@ function refreshCropImage() {
     cropFrame.style.opacity = '1';
   }
   cropImg.src = screenshotBase64;
-}
-
-async function selectFeed(feed: string) {
-  selectedFeedsScene = feed;
-  unsubscribeToChanges();
-  for (let i = 0; i < currentSceneFeedScenes.length; i++) {
-    let visible = false;
-    if (currentSceneFeedScenes[i] == feed) visible = true;
-    await obs.send('SetSceneItemProperties', {
-      'scene-name': pvw ? pvw : pgm,
-      item: { name: currentSceneFeedScenes[i] },
-      visible: visible,
-      crop: {},
-      bounds: {},
-      position: {},
-      scale: {},
-    });
-  }
-  subscribeToChanges();
 }
 
 function refreshFooter() {
