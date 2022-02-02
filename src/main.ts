@@ -1,16 +1,16 @@
 import ObsWebSocket from 'obs-websocket-js';
 import obsWebsocketJs from 'obs-websocket-js';
+import { icons } from './icons';
 
 const autocropThreshold = 35;
 const gdqGreen = [1, 128, 1];
 
-const screenshotUrl = window.location.href;
-const obsScreenshotURL = screenshotUrl.slice(8, -10) + 'screenshot.jpg';
 let screenshotBase64 = '';
 let connectedToOBS = false;
 let obsConnectionError = '';
-let cropItem: null | (sceneItemRef & crop & { width: number; height: number }) =
-  null;
+let cropItem:
+  | null
+  | (sceneItemRef & crop & { width: number; height: number }) = null;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
 let targetCrop: crop | null = null;
 let initialCrop: crop | null = null;
@@ -28,9 +28,6 @@ let pgm: string;
 let pvw: string | null;
 let subscribed = false;
 let inInit = false;
-const sourceIcons: {
-  [key in obsSourceType]: string;
-} = require('./source-icons.json');
 let obsPort = 4444;
 let obsPassword = '';
 if (localStorage.getItem('obsPort'))
@@ -46,6 +43,8 @@ const cropGuide = document.getElementById('crop-guide') as HTMLDivElement;
 type SvgPathInHtml = HTMLElement & SVGPathElement;
 const croppedSvg = document.getElementById('cropped') as SvgPathInHtml;
 const cropOutline = document.getElementById('crop-outline') as HTMLDivElement;
+
+//hotkeys:
 document.onkeydown = (e) => {
   if (cropItem) {
     if (e.key == 'ArrowUp' && e.shiftKey == true && e.altKey == false) {
@@ -72,32 +71,32 @@ document.onkeydown = (e) => {
     if (e.key == 'ArrowDown' && e.shiftKey == false && e.altKey == true) {
       stepChange('bottom', -1);
     }
-		if (cropSide && e.shiftKey == false && e.altKey == false) {
-			if (e.key == 'ArrowUp' && cropSide == 'top') {
-				stepChange('top', -1)
-			}
-			if (e.key == 'ArrowUp' && cropSide == 'bottom') {
-				stepChange('bottom', 1)
-			}
-			if (e.key == 'ArrowDown' && cropSide == 'top') {
-				stepChange('top', 1)
-			}
-			if (e.key == 'ArrowDown' && cropSide == 'bottom') {
-				stepChange('bottom', -1)
-			}
-			if (e.key == 'ArrowLeft' && cropSide == 'left') {
-				stepChange('left', -1)
-			}
-			if (e.key == 'ArrowLeft' && cropSide == 'right') {
-				stepChange('right', 1)
-			}
-			if (e.key == 'ArrowRight' && cropSide == 'left') {
-				stepChange('left', 1)
-			}
-			if (e.key == 'ArrowRight' && cropSide == 'right') {
-				stepChange('right', -1)
-			}
-		}
+    if (cropSide && e.shiftKey == false && e.altKey == false) {
+      if (e.key == 'ArrowUp' && cropSide == 'top') {
+        stepChange('top', -1);
+      }
+      if (e.key == 'ArrowUp' && cropSide == 'bottom') {
+        stepChange('bottom', 1);
+      }
+      if (e.key == 'ArrowDown' && cropSide == 'top') {
+        stepChange('top', 1);
+      }
+      if (e.key == 'ArrowDown' && cropSide == 'bottom') {
+        stepChange('bottom', -1);
+      }
+      if (e.key == 'ArrowLeft' && cropSide == 'left') {
+        stepChange('left', -1);
+      }
+      if (e.key == 'ArrowLeft' && cropSide == 'right') {
+        stepChange('right', 1);
+      }
+      if (e.key == 'ArrowRight' && cropSide == 'left') {
+        stepChange('left', 1);
+      }
+      if (e.key == 'ArrowRight' && cropSide == 'right') {
+        stepChange('right', -1);
+      }
+    }
   }
 };
 function initZoomDirs() {
@@ -109,8 +108,8 @@ function initZoomDirs() {
       | 'top'
       | 'bottom';
     if (cropSide == side) {
-      zoom.src = 'assets/zoom_out.svg';
-    } else zoom.src = 'assets/zoom_in.svg';
+      zoom.src = icons.zoomOut;
+    } else zoom.src = icons.zoomIn;
   });
 }
 document.querySelectorAll('.handle').forEach((elem) => {
@@ -135,6 +134,7 @@ document.querySelectorAll('.handle').forEach((elem) => {
 });
 document.querySelectorAll('.zoom').forEach((elem) => {
   const zoom = elem as HTMLImageElement;
+  zoom.src = icons.zoomIn;
   const side = zoom.parentElement.id.slice(0, -5) as
     | 'left'
     | 'right'
@@ -151,23 +151,51 @@ document.querySelectorAll('.zoom').forEach((elem) => {
   };
 });
 document.querySelectorAll('.plus').forEach((elem) => {
-  const plus = elem as HTMLElement;
+  const plus = elem as HTMLImageElement;
   const side = plus.parentElement.id.slice(0, -5) as
     | 'left'
     | 'right'
     | 'top'
     | 'bottom';
+  switch (side) {
+    case 'top':
+      plus.src = icons.down;
+      break;
+    case 'bottom':
+      plus.src = icons.up;
+      break;
+    case 'left':
+      plus.src = icons.right;
+      break;
+    case 'right':
+      plus.src = icons.left;
+      break;
+  }
   plus.onclick = () => {
     stepChange(side, 1);
   };
 });
 document.querySelectorAll('.minus').forEach((elem) => {
-  const minus = elem as HTMLElement;
+  const minus = elem as HTMLImageElement;
   const side = minus.parentElement.id.slice(0, -5) as
     | 'left'
     | 'right'
     | 'top'
     | 'bottom';
+  switch (side) {
+    case 'top':
+      minus.src = icons.up;
+      break;
+    case 'bottom':
+      minus.src = icons.down;
+      break;
+    case 'left':
+      minus.src = icons.left;
+      break;
+    case 'right':
+      minus.src = icons.right;
+      break;
+  }
   minus.onclick = () => {
     stepChange(side, -1);
   };
@@ -556,7 +584,7 @@ async function refreshViewportsDiv() {
 
       const removeSources = document.createElement('img');
       removeSources.classList.add('icon');
-      removeSources.src = 'assets/trash.svg';
+      removeSources.src = icons.trash;
       removeSources.onclick = () => {
         if (confirm('Delete all unassigned video feeds?'))
           removeUnassignedSources();
@@ -569,7 +597,7 @@ async function refreshViewportsDiv() {
       headerDiv.appendChild(titleDiv);
       const addSource = document.createElement('img');
       addSource.classList.add('icon');
-      addSource.src = 'assets/plus.svg';
+      addSource.src = icons.plus;
       const onClick = () => {
         addSource.onclick = () => {
           if (selectedFeedsScene) {
@@ -592,11 +620,11 @@ async function refreshViewportsDiv() {
       typeIcon.classList.add('icon');
       const type = viewportFeeds[j].type;
       if (
-        sourceIcons.hasOwnProperty(type) &&
-        sourceIcons[type as obsSourceType]
+        icons.sources.hasOwnProperty(type) &&
+        icons.sources[type as obsSourceType]
       ) {
-        typeIcon.src = 'assets/sources/' + sourceIcons[type as obsSourceType];
-      } else typeIcon.src = 'assets/sources/default.svg';
+        typeIcon.src = icons.sources[type as obsSourceType];
+      } else typeIcon.src = icons.defaultSource;
       sourceDiv.appendChild(typeIcon);
       const text = document.createElement('div');
       text.classList.add('source-text');
@@ -605,7 +633,7 @@ async function refreshViewportsDiv() {
       const trashIcon = document.createElement('img');
       trashIcon.classList.add('icon');
       trashIcon.style.float = 'right';
-      trashIcon.src = 'assets/trash.svg';
+      trashIcon.src = icons.trash;
       trashIcon.onclick = () => {
         unsubscribeToChanges();
         obs
@@ -626,7 +654,7 @@ async function refreshViewportsDiv() {
       const cropIcon = document.createElement('img');
       cropIcon.classList.add('icon');
       cropIcon.style.float = 'right';
-      cropIcon.src = 'assets/crop.svg';
+      cropIcon.src = icons.crop;
       cropIcon.onclick = () => {
         cropItem = viewportFeeds[j];
         refreshCropDiv();
@@ -669,7 +697,6 @@ function refreshCropDiv() {
   obs
     .send('TakeSourceScreenshot', {
       sourceName: cropItem.item.name,
-      saveToFilePath: obsScreenshotURL,
       embedPictureFormat: 'png',
     })
     .then((data) => {
@@ -805,7 +832,7 @@ function refreshFooter() {
     let icon = document.createElement('img');
     icon.width = 16;
     icon.classList.add('icon', 'footer');
-    icon.src = 'assets/revert.svg';
+    icon.src = icons.revert;
     icon.onclick = () => {
       cropSide = null;
       if (!cropItem) {
@@ -834,7 +861,7 @@ function refreshFooter() {
     icon = document.createElement('img');
     icon.width = 16;
     icon.classList.add('icon', 'footer');
-    icon.src = 'assets/check.svg';
+    icon.src = icons.check;
     icon.onclick = () => {
       cropItem = null;
       cropSide = null;
@@ -846,7 +873,7 @@ function refreshFooter() {
     if (!connectedToOBS) {
       icon.width = 16;
       icon.classList.add('icon', 'footer');
-      icon.src = 'assets/revert.svg';
+      icon.src = icons.revert;
       icon.onclick = () => {
         connectToOBS();
       };
@@ -855,7 +882,7 @@ function refreshFooter() {
     icon = document.createElement('img');
     icon.width = 16;
     icon.classList.add('icon', 'footer');
-    icon.src = 'assets/general.svg';
+    icon.src = `data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cpath%20fill%3D%27%23d2d2d2%27%20fill-rule%3D%27evenodd%27%20d%3D%27M32%2017.77V14.1l-4.434-1.468-1.027-2.497%202.008-4.21-2.582-2.592-4.137%202.085-2.492-1.033-1.574-4.4h-3.66L12.664%204.43l-2.539%201.03-4.203-2.01-2.586%202.583%202.082%204.152-1.031%202.497L0%2014.234v3.647l4.434%201.468%201.027%202.497-2.008%204.216%202.582%202.59%204.137-2.09%202.492%201.035%201.574%204.394h3.637l1.437-4.444%202.54-1.029%204.207%202.018%202.582-2.59-2.102-4.15%201.074-2.496L32%2017.72zm-16%205.105c-3.793%200-6.856-3.07-6.856-6.873S12.208%209.128%2016%209.128s6.856%203.07%206.856%206.874-3.063%206.873-6.856%206.873z%27%2F%3E%3C%2Fsvg%3E`;
     icon.onclick = () => {
       setTimeout(() => {
         if (document.querySelectorAll('.pop-up').length == 0) {
@@ -923,11 +950,11 @@ async function addSourceOnclick(
     icon.classList.add('icon');
     const type = videoFeeds[i].type;
     if (
-      sourceIcons.hasOwnProperty(type) &&
-      sourceIcons[type as obsSourceType]
+      icons.sources.hasOwnProperty(type) &&
+      icons.sources[type as obsSourceType]
     ) {
-      icon.src = 'assets/sources/' + sourceIcons[type as obsSourceType];
-    } else icon.src = 'assets/sources/default.svg';
+      icon.src = icons.sources[type as obsSourceType];
+    } else icon.src = icons.defaultSource;
     sourceDiv.appendChild(icon);
     const text = document.createElement('div');
     text.classList.add('source-text');
