@@ -658,6 +658,15 @@ async function refreshViewportsDiv() {
       removeRow.onclick = () => {
         if (currentSceneViewports[i].rows > 1) {
           currentSceneViewports[i].rows--;
+          const columns = Math.ceil(
+            currentSceneViewports[i].assignedFeeds.length /
+              currentSceneViewports[i].rows
+          );
+          if (
+            Math.ceil(currentSceneViewports[i].assignedFeeds.length / columns) <
+            currentSceneViewports[i].rows
+          )
+            currentSceneViewports[i].rows--;
           if (currentSceneViewports[i].rows <= 1)
             removeRow.classList.add('hide');
           arrangeViewportFeeds(currentSceneViewports[i]);
@@ -674,6 +683,15 @@ async function refreshViewportsDiv() {
           currentSceneViewports[i].assignedFeeds.length
         ) {
           currentSceneViewports[i].rows++;
+          const columns = Math.ceil(
+            currentSceneViewports[i].assignedFeeds.length /
+              currentSceneViewports[i].rows
+          );
+          if (
+            Math.ceil(currentSceneViewports[i].assignedFeeds.length / columns) <
+            currentSceneViewports[i].rows
+          )
+            currentSceneViewports[i].rows++;
           if (
             currentSceneViewports[i].assignedFeeds.length <=
             currentSceneViewports[i].rows
@@ -748,6 +766,7 @@ async function refreshViewportsDiv() {
           .catch(obsError)
           .then(() => {
             subscribeToChanges();
+						arrangeViewportFeeds(currentSceneViewports[i])
             refreshViewportsDiv();
           });
       };
