@@ -8,9 +8,8 @@ const gdqGreen = [1, 128, 1];
 let screenshotBase64 = '';
 let connectedToOBS = false;
 let obsConnectionError = '';
-let cropItem:
-  | null
-  | (sceneItemRef & crop & { width: number; height: number }) = null;
+let cropItem: null | (sceneItemRef & crop & { width: number; height: number }) =
+  null;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
 let targetCrop: crop | null = null;
 let initialCrop: crop | null = null;
@@ -487,6 +486,8 @@ async function updateFromCurrentSceneItems(items: ObsWebSocket.SceneItem[]) {
             y: data.position.y,
             width: data.width,
             height: data.height,
+            rows: 1,
+            columns: 1,
             assignedFeeds: [],
           });
         })
@@ -518,8 +519,23 @@ async function updateFromCurrentSceneItems(items: ObsWebSocket.SceneItem[]) {
 
 function populateViewportsFromActiveFeed() {
   unassignedFeeds = [];
-  for (let i = 0; i < currentSceneViewports.length; i++)
+  const viewportSearchBoxes: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }[] = [];
+  for (let i = 0; i < currentSceneViewports.length; i++) {
     currentSceneViewports[i].assignedFeeds = [];
+    currentSceneViewports[i].rows = 1;
+    currentSceneViewports[i].columns = 1;
+    viewportSearchBoxes[i] = {
+      x: currentSceneViewports[i].x,
+      y: currentSceneViewports[i].y,
+      width: currentSceneViewports[i].width,
+      height: currentSceneViewports[i].height,
+    };
+  }
   if (!selectedFeedsScene) return;
   let sceneItemList: obsSceneItems = [];
   return obs
@@ -547,14 +563,51 @@ function populateViewportsFromActiveFeed() {
             let assigned = false;
             for (let i = 0; i < currentSceneViewports.length; i++) {
               if (
-                currentSceneViewports[i].x == data.position.x &&
-                currentSceneViewports[i].y == data.position.y &&
-                currentSceneViewports[i].width == data.bounds.x &&
-                currentSceneViewports[i].height == data.bounds.y
+                viewportSearchBoxes[i].x == data.position.x &&
+                viewportSearchBoxes[i].y == data.position.y
               ) {
-                currentSceneViewports[i].assignedFeeds.push(viewportFeed);
-                assigned = true;
-                break;
+                if (
+                  viewportSearchBoxes[i].width == data.bounds.x &&
+                  viewportSearchBoxes[i].height == data.bounds.y
+                ) {
+                  currentSceneViewports[i].assignedFeeds.push(viewportFeed);
+                  if (
+                    currentSceneViewports[i].rows > 1 ||
+                    currentSceneViewports[i].columns > 1
+                  )
+                    viewportSearchBoxes[i] = getViewPortBoundingBoxes(
+                      currentSceneViewports[i]
+                    )[currentSceneViewports[i].assignedFeeds.length];
+                  assigned = true;
+                  break;
+                } else if (currentSceneViewports[i].assignedFeeds.length == 0) {
+                  const possibleWidth: number[] = [NaN];
+                  for (let j = 1; j <= 4; j++) {
+                    possibleWidth.push(
+                      Math.round(currentSceneViewports[i].width / j)
+                    );
+                  }
+                  const columns = possibleWidth.indexOf(data.bounds.x);
+                  if (columns > 0) {
+                    const possibleHeight: number[] = [NaN];
+                    for (let j = 1; j <= 4; j++) {
+                      possibleHeight.push(
+                        Math.round(currentSceneViewports[i].height / j)
+                      );
+                    }
+                    const rows = possibleHeight.indexOf(data.bounds.y);
+                    if (rows > 0) {
+                      currentSceneViewports[i].rows = rows;
+                      currentSceneViewports[i].columns = columns;
+                      currentSceneViewports[i].assignedFeeds.push(viewportFeed);
+                      viewportSearchBoxes[i] = getViewPortBoundingBoxes(
+                        currentSceneViewports[i]
+                      )[currentSceneViewports[i].assignedFeeds.length];
+                      assigned = true;
+                      break;
+                    }
+                  }
+                }
               }
             }
             if (!assigned) unassignedFeeds.push(viewportFeed);
@@ -576,12 +629,14 @@ async function refreshViewportsDiv() {
     headerDiv.classList.add('viewport-header');
     const titleDiv = document.createElement('div');
     titleDiv.classList.add('viewport-title');
+    const spacer = document.createElement('div');
+    spacer.style.flexGrow = '1';
     let viewportFeeds: typeof unassignedFeeds;
     if (i == currentSceneViewports.length) {
       if (unassignedFeeds.length == 0) break;
       titleDiv.innerHTML = 'Unassigned';
       headerDiv.appendChild(titleDiv);
-
+      headerDiv.appendChild(spacer);
       const removeSources = document.createElement('img');
       removeSources.classList.add('icon');
       removeSources.src = icons.trash;
@@ -595,6 +650,45 @@ async function refreshViewportsDiv() {
     } else {
       titleDiv.innerHTML = currentSceneViewports[i].name;
       headerDiv.appendChild(titleDiv);
+      headerDiv.appendChild(spacer);
+      const removeRow = document.createElement('img');
+      const addRow = document.createElement('img');
+      removeRow.classList.add('icon');
+      removeRow.src = icons.removeRow;
+      removeRow.onclick = () => {
+        if (currentSceneViewports[i].rows > 1) {
+          currentSceneViewports[i].rows--;
+          if (currentSceneViewports[i].rows <= 1)
+            removeRow.classList.add('hide');
+          arrangeViewportFeeds(currentSceneViewports[i]);
+          addRow.classList.remove('hide');
+        }
+      };
+      if (currentSceneViewports[i].rows <= 1) removeRow.classList.add('hide');
+      headerDiv.appendChild(removeRow);
+      addRow.classList.add('icon');
+      addRow.src = icons.addRow;
+      addRow.onclick = () => {
+        if (
+          currentSceneViewports[i].rows <
+          currentSceneViewports[i].assignedFeeds.length
+        ) {
+          currentSceneViewports[i].rows++;
+          if (
+            currentSceneViewports[i].assignedFeeds.length <=
+            currentSceneViewports[i].rows
+          )
+            addRow.classList.add('hide');
+          arrangeViewportFeeds(currentSceneViewports[i]);
+          removeRow.classList.remove('hide');
+        }
+      };
+      if (
+        currentSceneViewports[i].assignedFeeds.length <=
+        currentSceneViewports[i].rows
+      )
+        addRow.classList.add('hide');
+      headerDiv.appendChild(addRow);
       const addSource = document.createElement('img');
       addSource.classList.add('icon');
       addSource.src = icons.plus;
@@ -643,6 +737,13 @@ async function refreshViewportsDiv() {
           })
           .then(() => {
             viewportFeeds.splice(j, 1);
+            if (
+              currentSceneViewports[i] &&
+              currentSceneViewports[i].rows >
+                currentSceneViewports[i].assignedFeeds.length
+            )
+              currentSceneViewports[i].rows =
+                currentSceneViewports[i].assignedFeeds.length;
           })
           .catch(obsError)
           .then(() => {
@@ -680,6 +781,97 @@ async function removeUnassignedSources() {
   unassignedFeeds = [];
   subscribeToChanges();
   refreshViewportsDiv();
+}
+
+function getViewPortBoundingBoxes(viewport: viewport) {
+  const rtn: { x: number; y: number; width: number; height: number }[] = [];
+  for (let y = 0; y < viewport.rows; y++) {
+    for (let x = 0; x < viewport.columns; x++) {
+      const boxX = Math.round((x * viewport.width) / viewport.columns);
+      const boxY = Math.round((y * viewport.height) / viewport.rows);
+      rtn.push({
+        x: viewport.x + boxX,
+        y: viewport.y + boxY,
+        width: Math.round(((x + 1) * viewport.width) / viewport.columns) - boxX,
+        height: Math.round(((y + 1) * viewport.height) / viewport.rows) - boxY,
+      });
+    }
+  }
+  return rtn;
+}
+
+async function arrangeViewportFeeds(viewport: viewport) {
+  viewport.columns = Math.ceil(viewport.assignedFeeds.length / viewport.rows);
+  const boxes = getViewPortBoundingBoxes(viewport);
+  unsubscribeToChanges();
+  for (let i = 0; i < viewport.assignedFeeds.length; i++) {
+    const feed = viewport.assignedFeeds[i];
+    await obs
+      .send('SetSceneItemProperties', {
+        'scene-name': selectedFeedsScene,
+        item: feed.item,
+        position: { x: boxes[i].x, y: boxes[i].y },
+        locked: true,
+        scale: {},
+        crop: {},
+        bounds: {
+          type: 'OBS_BOUNDS_SCALE_INNER',
+          x: boxes[i].width,
+          y: boxes[i].height,
+        },
+      })
+      .catch(console.error);
+  }
+  subscribeToChanges();
+}
+
+async function addSourceOnclick(
+  viewport: viewport,
+  headerDiv: HTMLDivElement,
+  reset: () => void
+) {
+  await new Promise((res) => setTimeout(res, 1)); //allow click to propagate first;
+  const addSourceDiv = document.createElement('div');
+  addSourceDiv.classList.add('pop-up');
+  for (let i = 0; i < videoFeeds.length; i++) {
+    const sourceDiv = document.createElement('div');
+    sourceDiv.classList.add('source');
+    const icon = document.createElement('img');
+    icon.classList.add('icon');
+    const type = videoFeeds[i].type;
+    if (
+      icons.sources.hasOwnProperty(type) &&
+      icons.sources[type as obsSourceType]
+    ) {
+      icon.src = icons.sources[type as obsSourceType];
+    } else icon.src = icons.defaultSource;
+    sourceDiv.appendChild(icon);
+    const text = document.createElement('div');
+    text.classList.add('source-text');
+    text.innerHTML += videoFeeds[i].name;
+    sourceDiv.appendChild(text);
+    sourceDiv.onclick = () => {
+      document.onclick = null;
+      headerDiv.removeChild(addSourceDiv);
+      reset();
+      addSourceToViewport(videoFeeds[i], viewport);
+    };
+    addSourceDiv.appendChild(sourceDiv);
+  }
+  document.onclick = (e) => {
+    if (e.target !== addSourceDiv && !addSourceDiv.contains(e.target as Node)) {
+      document.onclick = null;
+      headerDiv.removeChild(addSourceDiv);
+      reset();
+    }
+  };
+  addSourceDiv.style.visibility = 'hidden';
+  headerDiv.appendChild(addSourceDiv);
+  const margin = 10;
+  const moveUp =
+    addSourceDiv.getBoundingClientRect().bottom + margin - window.innerHeight;
+  if (moveUp > 0) addSourceDiv.style.transform = `translateY(-${moveUp}px)`;
+  addSourceDiv.style.visibility = '';
 }
 
 function refreshCropDiv() {
@@ -935,55 +1127,6 @@ function refreshFooter() {
   }
 }
 
-async function addSourceOnclick(
-  viewport: viewport,
-  headerDiv: HTMLDivElement,
-  reset: () => void
-) {
-  await new Promise((res) => setTimeout(res, 1)); //allow click to propagate first;
-  const addSourceDiv = document.createElement('div');
-  addSourceDiv.classList.add('pop-up');
-  for (let i = 0; i < videoFeeds.length; i++) {
-    const sourceDiv = document.createElement('div');
-    sourceDiv.classList.add('source');
-    const icon = document.createElement('img');
-    icon.classList.add('icon');
-    const type = videoFeeds[i].type;
-    if (
-      icons.sources.hasOwnProperty(type) &&
-      icons.sources[type as obsSourceType]
-    ) {
-      icon.src = icons.sources[type as obsSourceType];
-    } else icon.src = icons.defaultSource;
-    sourceDiv.appendChild(icon);
-    const text = document.createElement('div');
-    text.classList.add('source-text');
-    text.innerHTML += videoFeeds[i].name;
-    sourceDiv.appendChild(text);
-    sourceDiv.onclick = () => {
-      document.onclick = null;
-      headerDiv.removeChild(addSourceDiv);
-      reset();
-      addSourceToViewport(videoFeeds[i], viewport);
-    };
-    addSourceDiv.appendChild(sourceDiv);
-  }
-  document.onclick = (e) => {
-    if (e.target !== addSourceDiv && !addSourceDiv.contains(e.target as Node)) {
-      document.onclick = null;
-      headerDiv.removeChild(addSourceDiv);
-      reset();
-    }
-  };
-  addSourceDiv.style.visibility = 'hidden';
-  headerDiv.appendChild(addSourceDiv);
-  const margin = 10;
-  const moveUp =
-    addSourceDiv.getBoundingClientRect().bottom + margin - window.innerHeight;
-  if (moveUp > 0) addSourceDiv.style.transform = `translateY(-${moveUp}px)`;
-  addSourceDiv.style.visibility = '';
-}
-
 async function addSourceToViewport(
   source: obsWebsocketJs.SceneItem,
   viewport: viewport
@@ -1021,14 +1164,21 @@ async function addSourceToViewport(
     })
     .catch(obsError)
     .then(() => {
-      subscribeToChanges();
       const viewportIndex = currentSceneViewports
         .map((x) => x.name)
         .indexOf(viewport.name);
       if (viewportIndex != -1 && newItem) {
         currentSceneViewports[viewportIndex].assignedFeeds.push(newItem);
-        refreshViewportsDiv();
-      } else initOBS();
+        arrangeViewportFeeds(currentSceneViewports[viewportIndex])
+          .then(() => {
+            refreshViewportsDiv();
+            subscribeToChanges();
+          })
+          .catch(console.error);
+      } else {
+        subscribeToChanges();
+        initOBS();
+      }
     });
 }
 
