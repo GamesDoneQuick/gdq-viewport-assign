@@ -4,6 +4,7 @@ import { icons } from './icons';
 
 const autocropThreshold = 35;
 const gdqGreen = [1, 128, 1];
+const gdqGreen2 = [0, 255, 0];
 
 let screenshotBase64 = '';
 let connectedToOBS = false;
@@ -766,7 +767,7 @@ async function refreshViewportsDiv() {
           .catch(obsError)
           .then(() => {
             subscribeToChanges();
-						arrangeViewportFeeds(currentSceneViewports[i])
+            arrangeViewportFeeds(currentSceneViewports[i]);
             refreshViewportsDiv();
           });
       };
@@ -1429,9 +1430,12 @@ function compareToGreen(
   y: number
 ): number {
   const pixel = Array.from(ctx.getImageData(x, y, 1, 1).data);
-  return (
+  return Math.min(
     Math.abs(pixel[0] - gdqGreen[0]) +
-    Math.abs(pixel[1] - gdqGreen[1]) +
-    Math.abs(pixel[2] - gdqGreen[2])
+      Math.abs(pixel[1] - gdqGreen[1]) +
+      Math.abs(pixel[2] - gdqGreen[2]),
+    Math.abs(pixel[0] - gdqGreen2[0]) +
+      Math.abs(pixel[1] - gdqGreen2[1]) +
+      Math.abs(pixel[2] - gdqGreen2[2])
   );
 }
