@@ -498,7 +498,7 @@ async function updateFromCurrentSceneItems(items: ObsWebSocket.SceneItem[]) {
           return;
         });
     }
-    if (items[i].name.slice(0, 5) == 'Feeds') {
+    if (items[i].name.slice(0, 5) == 'Feeds' && items[i].name != 'Feeds') {
       currentSceneFeedScenes.push(items[i].name);
       if (items[i].render)
         if (!selectedFeedsScene) {
