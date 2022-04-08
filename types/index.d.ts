@@ -28,7 +28,7 @@ type viewport = {
   height: number;
 	rows: number;
 	columns: number;
-  assignedFeeds: (sceneItemRef & crop & { type: string, width: number, height: number })[];
+  assignedFeeds: (sceneItemRef & crop & { type: string, width: number, height: number, x: number, y: number, boundsWidth: number, boundsHeight: number })[];
 };
 type obsSceneItems = {
   itemId: number;

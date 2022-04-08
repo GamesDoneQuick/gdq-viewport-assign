@@ -9,8 +9,9 @@ const gdqGreen2 = [0, 255, 0];
 let screenshotBase64 = '';
 let connectedToOBS = false;
 let obsConnectionError = '';
-let cropItem: null | (sceneItemRef & crop & { width: number; height: number }) =
-  null;
+let cropItem:
+  | null
+  | (sceneItemRef & crop & { width: number; height: number }) = null;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
 let targetCrop: crop | null = null;
 let initialCrop: crop | null = null;
@@ -543,6 +544,7 @@ function populateViewportsFromActiveFeed() {
     .send('GetSceneItemList', { sceneName: selectedFeedsScene })
     .then(async (data) => {
       sceneItemList = data.sceneItems;
+      const viewportFeeds: viewport['assignedFeeds'] = [];
       for (let i = 0; i < data.sceneItems.length; i++) {
         await obs
           .send('GetSceneItemProperties', {
@@ -550,7 +552,7 @@ function populateViewportsFromActiveFeed() {
             item: { id: data.sceneItems[i].itemId },
           })
           .then((data) => {
-            const viewportFeed: viewport['assignedFeeds'][number] = {
+            viewportFeeds.push({
               'scene-name': selectedFeedsScene,
               item: { id: data.itemId, name: data.name },
               type: sceneItemList[i].sourceKind,
@@ -560,61 +562,97 @@ function populateViewportsFromActiveFeed() {
               bottom: data.crop.bottom,
               width: data.sourceWidth,
               height: data.sourceHeight,
-            };
-            let assigned = false;
-            for (let i = 0; i < currentSceneViewports.length; i++) {
-              if (
-                viewportSearchBoxes[i].x == data.position.x &&
-                viewportSearchBoxes[i].y == data.position.y
-              ) {
-                if (
-                  viewportSearchBoxes[i].width == data.bounds.x &&
-                  viewportSearchBoxes[i].height == data.bounds.y
-                ) {
-                  currentSceneViewports[i].assignedFeeds.push(viewportFeed);
-                  if (
-                    currentSceneViewports[i].rows > 1 ||
-                    currentSceneViewports[i].columns > 1
-                  )
-                    viewportSearchBoxes[i] = getViewPortBoundingBoxes(
-                      currentSceneViewports[i]
-                    )[currentSceneViewports[i].assignedFeeds.length];
-                  assigned = true;
-                  break;
-                } else if (currentSceneViewports[i].assignedFeeds.length == 0) {
-                  const possibleWidth: number[] = [NaN];
-                  for (let j = 1; j <= 4; j++) {
-                    possibleWidth.push(
-                      Math.round(currentSceneViewports[i].width / j)
-                    );
-                  }
-                  const columns = possibleWidth.indexOf(data.bounds.x);
-                  if (columns > 0) {
-                    const possibleHeight: number[] = [NaN];
-                    for (let j = 1; j <= 4; j++) {
-                      possibleHeight.push(
-                        Math.round(currentSceneViewports[i].height / j)
-                      );
-                    }
-                    const rows = possibleHeight.indexOf(data.bounds.y);
-                    if (rows > 0) {
-                      currentSceneViewports[i].rows = rows;
-                      currentSceneViewports[i].columns = columns;
-                      currentSceneViewports[i].assignedFeeds.push(viewportFeed);
-                      viewportSearchBoxes[i] = getViewPortBoundingBoxes(
-                        currentSceneViewports[i]
-                      )[currentSceneViewports[i].assignedFeeds.length];
-                      assigned = true;
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-            if (!assigned) unassignedFeeds.push(viewportFeed);
+              x: data.position.x,
+              y: data.position.y,
+              boundsWidth: data.bounds.x,
+              boundsHeight: data.bounds.y,
+            });
           })
           .catch(obsError);
       }
+      let i = 0;
+      let productiveLoop = false;
+      while (i < viewportFeeds.length) {
+        let assigned = false;
+        for (let j = 0; j < currentSceneViewports.length; j++) {
+          if (
+            viewportSearchBoxes[j].x == viewportFeeds[i].x &&
+            viewportSearchBoxes[j].y == viewportFeeds[i].y
+          ) {
+            if (
+              viewportSearchBoxes[j].width == viewportFeeds[i].boundsWidth &&
+              viewportSearchBoxes[j].height == viewportFeeds[i].boundsHeight
+            ) {
+              currentSceneViewports[j].assignedFeeds.push(viewportFeeds[i]);
+              if (
+                currentSceneViewports[j].rows > 1 ||
+                currentSceneViewports[j].columns > 1
+              )
+                viewportSearchBoxes[j] = getViewPortBoundingBoxes(
+                  currentSceneViewports[j]
+                )[currentSceneViewports[j].assignedFeeds.length];
+              if (!viewportSearchBoxes[j])
+                viewportSearchBoxes[j] = {
+                  x: -1,
+                  y: -1,
+                  width: -1,
+                  height: -1,
+                };
+              productiveLoop = true;
+              assigned = true;
+              viewportFeeds.splice(i, 1);
+              break;
+            } else if (currentSceneViewports[j].assignedFeeds.length == 0) {
+              const possibleWidth: number[] = [NaN]; //array index corresponds to number of columns, which can't be zero
+              for (let k = 1; k <= 4; k++) {
+                possibleWidth.push(
+                  Math.round(currentSceneViewports[j].width / k)
+                );
+              }
+              const columns = possibleWidth.indexOf(
+                viewportFeeds[i].boundsWidth
+              );
+              if (columns > 0) {
+                const possibleHeight: number[] = [NaN]; //array index corresponds to number of rows, which can't be zero
+                for (let k = 1; k <= 4; k++) {
+                  possibleHeight.push(
+                    Math.round(currentSceneViewports[j].height / k)
+                  );
+                }
+                const rows = possibleHeight.indexOf(
+                  viewportFeeds[i].boundsHeight
+                );
+                if (rows > 0) {
+                  currentSceneViewports[j].rows = rows;
+                  currentSceneViewports[j].columns = columns;
+                  currentSceneViewports[j].assignedFeeds.push(viewportFeeds[i]);
+                  viewportSearchBoxes[j] = getViewPortBoundingBoxes(
+                    currentSceneViewports[j]
+                  )[currentSceneViewports[j].assignedFeeds.length];
+                  if (!viewportSearchBoxes[j])
+                    viewportSearchBoxes[j] = {
+                      x: -1,
+                      y: -1,
+                      width: -1,
+                      height: -1,
+                    };
+                  productiveLoop = true;
+                  assigned = true;
+                  viewportFeeds.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        //if (!assigned) unassignedFeeds.push(viewportFeeds[i]);
+        if (!assigned) i++;
+        if (i == viewportFeeds.length && productiveLoop == true) {
+          i = 0;
+          productiveLoop = false;
+        }
+      }
+      unassignedFeeds = viewportFeeds;
     })
     .catch(obsError);
 }
@@ -761,6 +799,14 @@ async function refreshViewportsDiv() {
               currentSceneViewports[i].rows >
                 currentSceneViewports[i].assignedFeeds.length
             )
+              console.log(
+                'yo:' + currentSceneViewports[i].assignedFeeds.length
+              );
+            if (
+              currentSceneViewports[i] &&
+              currentSceneViewports[i].rows >
+                currentSceneViewports[i].assignedFeeds.length
+            )
               currentSceneViewports[i].rows =
                 currentSceneViewports[i].assignedFeeds.length;
           })
@@ -781,11 +827,82 @@ async function refreshViewportsDiv() {
         refreshCropDiv();
       };
       sourceDiv.appendChild(cropIcon);
+      const upIcon = document.createElement('img');
+      upIcon.classList.add('icon');
+      upIcon.style.float = 'right';
+      if (j > 0) {
+        upIcon.src = icons.up;
+        upIcon.onclick = () => {
+          //swapFeeds(viewportFeeds[j], viewportFeeds[j - 1]);
+          swapFeeds(viewportFeeds, j, j-1);
+        };
+      } else upIcon.src = icons.blank;
+      sourceDiv.appendChild(upIcon);
+      if (j < viewportFeeds.length - 1) {
+        const downIcon = document.createElement('img');
+        downIcon.classList.add('icon');
+        downIcon.style.float = 'right';
+        downIcon.src = icons.down;
+        sourceDiv.appendChild(downIcon);
+      }
       viewportSourcesDiv.appendChild(sourceDiv);
     }
     listDiv.appendChild(viewportSourcesDiv);
   }
   refreshFooter();
+}
+
+function swapFeeds(
+  viewportFeeds: typeof unassignedFeeds, index1: number, index2: number
+) {
+  const feed1 = viewportFeeds[index1];
+  const feed2 = viewportFeeds[index2];
+  const swapX = feed2.x;
+  const swapY = feed2.y;
+  const swapWidth = feed2.boundsWidth;
+  const swapHeight = feed2.boundsHeight;
+  feed2.x = feed1.x;
+  feed2.y = feed1.y;
+  feed2.boundsWidth = feed1.boundsWidth;
+  feed2.boundsHeight = feed1.boundsHeight;
+  feed1.x = swapX;
+  feed1.y = swapY;
+  feed1.boundsWidth = swapWidth;
+  feed1.boundsHeight = swapHeight
+  unsubscribeToChanges();
+  obs
+    .send('SetSceneItemProperties', {
+      'scene-name': selectedFeedsScene,
+      item: feed1.item,
+      position: { x: feed1.x, y: feed1.y },
+      scale: {},
+      crop: {},
+      bounds: {
+        x: feed1.boundsWidth,
+        y: feed1.boundsHeight,
+      },
+    })
+    .then(() => {
+      return obs.send('SetSceneItemProperties', {
+        'scene-name': selectedFeedsScene,
+        item: feed2.item,
+        position: { x: feed2.x, y: feed2.y },
+        scale: {},
+        crop: {},
+        bounds: {
+          x: feed2.boundsWidth,
+          y: feed2.boundsHeight,
+        },
+      });
+    })
+    .then(() => {
+      const swap = viewportFeeds[index2];
+      viewportFeeds[index2] = viewportFeeds[index1];
+      viewportFeeds[index1] = swap;
+      refreshViewportsDiv();
+      subscribeToChanges();
+    })
+    .catch(console.error);
 }
 
 async function removeUnassignedSources() {
@@ -839,6 +956,12 @@ async function arrangeViewportFeeds(viewport: viewport) {
           x: boxes[i].width,
           y: boxes[i].height,
         },
+      })
+      .then(() => {
+        feed.x = boxes[i].x;
+        feed.y = boxes[i].y;
+        feed.boundsWidth = boxes[i].width;
+        feed.boundsHeight = boxes[i].height;
       })
       .catch(console.error);
   }
@@ -1167,6 +1290,10 @@ async function addSourceToViewport(
         bottom: 0,
         width: source.source_cx,
         height: source.source_cy,
+        x: viewport.x,
+        y: viewport.y,
+        boundsWidth: viewport.width,
+        boundsHeight: viewport.height,
       };
       return obs.send('SetSceneItemProperties', {
         'scene-name': scene,
