@@ -9,6 +9,7 @@ const gdqGreen2 = [0, 255, 0];
 let screenshotBase64 = '';
 let connectedToOBS = false;
 let obsConnectionError = '';
+let obsUpdateTimeout: NodeJS.Timeout | null = null;
 let cropItem:
   | null
   | (sceneItemRef & crop & { width: number; height: number }) = null;
@@ -399,7 +400,14 @@ const reInitEvents = [
 function subscribeToChanges() {
   if (!subscribed)
     for (let i = 0; i < reInitEvents.length; i++) {
-      obs.on(reInitEvents[i], initOBS);
+      obs.on(reInitEvents[i], () => {
+        if (obsUpdateTimeout) {
+          clearTimeout(obsUpdateTimeout);
+        }
+        obsUpdateTimeout = setTimeout(() => {
+          initOBS();
+        }, 200);
+      });
     }
   subscribed = true;
 }
