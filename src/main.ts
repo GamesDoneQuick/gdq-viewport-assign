@@ -797,15 +797,7 @@ async function refreshViewportsDiv() {
             if (
               currentSceneViewports[i] &&
               currentSceneViewports[i].rows >
-                currentSceneViewports[i].assignedFeeds.length
-            )
-              console.log(
-                'yo:' + currentSceneViewports[i].assignedFeeds.length
-              );
-            if (
-              currentSceneViewports[i] &&
-              currentSceneViewports[i].rows >
-                currentSceneViewports[i].assignedFeeds.length
+                currentSceneViewports[i].assignedFeeds.length && currentSceneViewports[i].assignedFeeds.length > 0
             )
               currentSceneViewports[i].rows =
                 currentSceneViewports[i].assignedFeeds.length;
@@ -833,7 +825,6 @@ async function refreshViewportsDiv() {
       if (j > 0) {
         upIcon.src = icons.up;
         upIcon.onclick = () => {
-          //swapFeeds(viewportFeeds[j], viewportFeeds[j - 1]);
           swapFeeds(viewportFeeds, j, j-1);
         };
       } else upIcon.src = icons.blank;
@@ -843,6 +834,9 @@ async function refreshViewportsDiv() {
         downIcon.classList.add('icon');
         downIcon.style.float = 'right';
         downIcon.src = icons.down;
+        downIcon.onclick = () => {
+          swapFeeds(viewportFeeds, j, j+1);
+        };
         sourceDiv.appendChild(downIcon);
       }
       viewportSourcesDiv.appendChild(sourceDiv);
