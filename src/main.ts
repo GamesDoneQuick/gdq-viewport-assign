@@ -797,7 +797,8 @@ async function refreshViewportsDiv() {
             if (
               currentSceneViewports[i] &&
               currentSceneViewports[i].rows >
-                currentSceneViewports[i].assignedFeeds.length && currentSceneViewports[i].assignedFeeds.length > 0
+                currentSceneViewports[i].assignedFeeds.length &&
+              currentSceneViewports[i].assignedFeeds.length > 0
             )
               currentSceneViewports[i].rows =
                 currentSceneViewports[i].assignedFeeds.length;
@@ -825,7 +826,7 @@ async function refreshViewportsDiv() {
       if (j > 0) {
         upIcon.src = icons.up;
         upIcon.onclick = () => {
-          swapFeeds(viewportFeeds, j, j-1);
+          swapFeeds(viewportFeeds, j, j - 1);
         };
       } else upIcon.src = icons.blank;
       sourceDiv.appendChild(upIcon);
@@ -835,7 +836,7 @@ async function refreshViewportsDiv() {
         downIcon.style.float = 'right';
         downIcon.src = icons.down;
         downIcon.onclick = () => {
-          swapFeeds(viewportFeeds, j, j+1);
+          swapFeeds(viewportFeeds, j, j + 1);
         };
         sourceDiv.appendChild(downIcon);
       }
@@ -847,7 +848,9 @@ async function refreshViewportsDiv() {
 }
 
 function swapFeeds(
-  viewportFeeds: typeof unassignedFeeds, index1: number, index2: number
+  viewportFeeds: typeof unassignedFeeds,
+  index1: number,
+  index2: number
 ) {
   const feed1 = viewportFeeds[index1];
   const feed2 = viewportFeeds[index2];
@@ -862,7 +865,7 @@ function swapFeeds(
   feed1.x = swapX;
   feed1.y = swapY;
   feed1.boundsWidth = swapWidth;
-  feed1.boundsHeight = swapHeight
+  feed1.boundsHeight = swapHeight;
   unsubscribeToChanges();
   obs
     .send('SetSceneItemProperties', {
