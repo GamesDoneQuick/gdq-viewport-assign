@@ -436,7 +436,7 @@ function initOBS() {
   if (cropItem) return;
   if (inInit) {
     obsError('initOBS called too frequently');
-    setTimeout(initOBS, 200)
+    setTimeout(initOBS, 200);
     return;
   }
   inInit = true;
@@ -1341,134 +1341,58 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
     return;
   }
   cropSide = null;
-  const y1 = 0.124; //always game1 to webcam gap
-  const y2 = 0.546; //game1 to game2 gap
-  const x1 = 0.176; //webcam y/ game2 y
-  const x2 = 0.718; //game1 y
-
   cropImg.style.transform = '';
   const width = cropItem.width;
   const height = cropItem.height;
+  const y1 = 0.124 * height; //always game1 to webcam gap
+  const y2 = 0.546 * height; //game1 to game2 gap
+  const x1 = 0.176 * width; //webcam y/ game2 y
+  const x2 = 0.718 * width; //game1 y
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(cropImg, 0, 0);
-  const newItemRec = { left: -1, right: -1, top: -1, bottom: -1 };
+  let temp: [number, number];
+  let newItemRec = { left: -1, right: -1, top: -1, bottom: -1 };
+  const camera = { left: -1, right: -1, top: -1, bottom: -1 };
+  const game1 = { left: -1, right: -1, top: -1, bottom: -1 };
+  const game2 = { left: -1, right: -1, top: -1, bottom: -1 };
+  temp = findGreenBlock(ctx, 'y', y1, y2, x1, true);
+  console.log(temp);
+  if (temp[1] < y2) game2.top = temp[1];
+  camera.bottom = temp[0];
+  temp = findGreenBlock(ctx, 'y', y1, 0, x1, true);
+  camera.top = temp[1] == -1 ? 0 : temp[1];
+  temp = findGreenBlock(ctx, 'x', x1, 0, y1, true);
+  camera.left = temp[1] == -1 ? 0 : temp[1];
+  temp = findGreenBlock(ctx, 'x', x2, x1, y2, true);
+  game2.right = temp[0] > x1 - 1 ? temp[0] : -1;
+  game1.left = temp[1];
+  temp = findGreenBlock(ctx, 'x', x1, x2, y1, true);
+  camera.right = temp[0] == -1 ? game1.left : temp[0];
+  temp = findGreenBlock(ctx, 'x', x2, width - 1, y1, true);
+  game1.right = temp[0] == -1 ? width - 1 : temp[0];
+  temp = findGreenBlock(ctx, 'y', y1, 0, x2, true);
+  game1.top = temp[1] == -1 ? 0 : temp[1];
+  temp = findGreenBlock(ctx, 'y', y1, height - 1, x2, true);
+  game1.bottom = temp[0] == -1 ? height - 1 : temp[0];
+  temp = findGreenBlock(ctx, 'x', x1, 0, y2, true);
+  game2.left = temp[1] == -1 ? 0 : temp[1];
+  temp = findGreenBlock(ctx, 'y', y2, height - 1, x1, true);
+  game2.bottom = temp[0] == -1 ? height - 1 : temp[0];
+  console.log(camera);
+  console.log(game1);
+  console.log(game2);
   switch (cropType) {
     case 'game1':
-      newItemRec.left = findGreenBlock(
-        ctx,
-        'x',
-        x1 * width,
-        x2 * width,
-        y1 * height,
-        true
-      )[1];
-      if (newItemRec.left == -1) newItemRec.left = 0;
-      newItemRec.right = findGreenBlock(
-        ctx,
-        'x',
-        x2 * width,
-        width - 1,
-        y1 * height,
-        true
-      )[0];
-      if (newItemRec.right == -1) newItemRec.right = width - 1;
-      newItemRec.bottom = findGreenBlock(
-        ctx,
-        'y',
-        y1 * height,
-        height - 1,
-        x2 * width,
-        true
-      )[0];
-      if (newItemRec.bottom == -1) newItemRec.bottom = height - 1;
-      newItemRec.top = findGreenBlock(
-        ctx,
-        'y',
-        0,
-        y1 * height,
-        x2 * width,
-        true
-      )[0];
-      if (newItemRec.top == -1) newItemRec.top = 0;
+      newItemRec = game1;
       break;
     case 'game2':
-      newItemRec.left = findGreenBlock(
-        ctx,
-        'x',
-        0,
-        x1 * width,
-        y2 * height,
-        true
-      )[1];
-      if (newItemRec.left == -1) newItemRec.left = 0;
-      newItemRec.right = findGreenBlock(
-        ctx,
-        'x',
-        x1 * width,
-        x2 * width,
-        y2 * height,
-        true
-      )[0];
-      if (newItemRec.right == -1) newItemRec.right = width - 1;
-      newItemRec.bottom = findGreenBlock(
-        ctx,
-        'y',
-        y2 * height,
-        height - 1,
-        x1 * width,
-        true
-      )[0];
-      if (newItemRec.bottom == -1) newItemRec.bottom = height - 1;
-      newItemRec.top = findGreenBlock(
-        ctx,
-        'y',
-        y1 * height,
-        y2 * height,
-        x1 * width,
-        true
-      )[0];
-      if (newItemRec.top == -1) newItemRec.top = 0;
+      newItemRec = game2;
       break;
     case 'camera':
-      newItemRec.left = findGreenBlock(
-        ctx,
-        'x',
-        0,
-        x1 * width,
-        y1 * height,
-        true
-      )[1];
-      if (newItemRec.left == -1) newItemRec.left = 0;
-      newItemRec.right = findGreenBlock(
-        ctx,
-        'x',
-        x1 * width,
-        x2 * width,
-        y1 * height,
-        true
-      )[0];
-      if (newItemRec.right == -1) newItemRec.right = width - 1;
-      newItemRec.bottom = findGreenBlock(
-        ctx,
-        'y',
-        y1 * height,
-        y2 * height,
-        x1 * width,
-        true
-      )[0];
-      if (newItemRec.bottom == -1) newItemRec.bottom = height - 1;
-      newItemRec.top = findGreenBlock(
-        ctx,
-        'y',
-        0,
-        y1 * height,
-        x2 * width,
-        true
-      )[0];
-      if (newItemRec.top == -1) newItemRec.top = 0;
+      newItemRec = camera;
       break;
   }
   const newCrop = {
