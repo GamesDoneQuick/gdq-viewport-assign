@@ -436,6 +436,7 @@ function initOBS() {
   if (cropItem) return;
   if (inInit) {
     obsError('initOBS called too frequently');
+    setTimeout(initOBS, 200)
     return;
   }
   inInit = true;
