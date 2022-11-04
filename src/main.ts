@@ -28,6 +28,7 @@ let pgm: string;
 let pvw: string | null;
 let subscribed = false;
 let inInit = false;
+let initBuffered = false;
 let obsPort = 4455;
 let obsPassword = '';
 if (localStorage.getItem('obsPort'))
@@ -421,6 +422,7 @@ function subscribeToChanges() {
 				}
 				obsUpdateTimeout = setTimeout(() => {
 					initOBS();
+					obsUpdateTimeout = null;
 				}, 200);
 			});
 		}
@@ -450,8 +452,7 @@ function initOBS() {
 	}
 	if (cropItem) return;
 	if (inInit) {
-		obsError('initOBS called too frequently');
-		setTimeout(initOBS, 200);
+		initBuffered = true;
 		return;
 	}
 	inInit = true;
@@ -487,7 +488,19 @@ function initOBS() {
 			refreshViewportsDiv();
 		})
 		.catch(obsError)
-		.then(() => (inInit = false));
+		.then(() => {
+			inInit = false;
+      if (initBuffered) {
+        initBuffered = false;
+        if (obsUpdateTimeout) {
+					clearTimeout(obsUpdateTimeout);
+				}
+				obsUpdateTimeout = setTimeout(() => {
+					initOBS();
+					obsUpdateTimeout = null;
+				}, 200);
+      }
+		});
 }
 
 async function updateFromCurrentSceneItems(items: ObsSceneItem[]) {
@@ -1188,9 +1201,9 @@ function refreshFooter() {
 				})
 				.catch(obsError);
 		};
-    button.appendChild(icon);
+		button.appendChild(icon);
 		footer.appendChild(button);
-    button = document.createElement('div');
+		button = document.createElement('div');
 		button.classList.add('icon', 'footer');
 		icon = document.createElement('img');
 		icon.width = 16;
@@ -1201,7 +1214,7 @@ function refreshFooter() {
 			cropSide = null;
 			refreshViewportsDiv();
 		};
-    button.appendChild(icon);
+		button.appendChild(icon);
 		footer.appendChild(button);
 	} else {
 		if (!connectedToOBS) {
