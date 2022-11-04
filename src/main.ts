@@ -21,7 +21,7 @@ let clickLoc = { clientX: 0, clientY: 0 };
 let activelyCropping = false;
 let currentSceneViewports: Viewport[] = [];
 let unassignedFeeds: Viewport['assignedFeeds'] = [];
-let currentSceneFeedScenes: string[] = [];
+let currentSceneFeedScenes: number[] = [];
 let videoFeeds: ObsSceneItem[] = [];
 let selectedFeedsScene = '';
 let pgm: string;
@@ -174,7 +174,7 @@ document.querySelectorAll('.plus').forEach((elem) => {
 			break;
 	}
 	plus.onclick = () => {
-		//stepChange(side, 1);
+		stepChange(side, 1);
 	};
 });
 document.querySelectorAll('.minus').forEach((elem) => {
@@ -199,7 +199,7 @@ document.querySelectorAll('.minus').forEach((elem) => {
 			break;
 	}
 	minus.onclick = () => {
-		//stepChange(side, -1);
+		stepChange(side, -1);
 	};
 });
 function stepChange(side: 'left' | 'right' | 'top' | 'bottom', change: 1 | -1) {
@@ -434,14 +434,14 @@ function unsubscribeToChanges() {
 }
 subscribeToChanges();
 
-/* obs.on('SceneItemEnableStateChanged', (data) => {
-  const activeScene = pvw ? pvw : pgm;
-  if (
-    data.sceneName == activeScene &&
-    currentSceneFeedScenes.indexOf(data['item-name']) != -1
-  )
-    if (subscribed) initOBS();
-}); */
+obs.on('SceneItemEnableStateChanged', (data) => {
+	const activeScene = pvw ? pvw : pgm;
+	if (
+		data.sceneName == activeScene &&
+		currentSceneFeedScenes.indexOf(data.sceneItemId) != -1
+	)
+		if (subscribed) initOBS();
+});
 
 function initOBS() {
 	if (!connectedToOBS) {
@@ -511,7 +511,7 @@ async function updateFromCurrentSceneItems(items: ObsSceneItem[]) {
 			items[i].sourceName.slice(0, 5) == 'Feeds' &&
 			items[i].sourceName != 'Feeds'
 		) {
-			currentSceneFeedScenes.push(items[i].sourceName);
+			currentSceneFeedScenes.push(items[i].sceneItemId);
 			if (items[i].sceneItemEnabled)
 				if (!selectedFeedsScene) {
 					selectedFeedsScene = items[i].sourceName;
@@ -858,20 +858,6 @@ function swapFeeds(
 	index1: number,
 	index2: number
 ) {
-	/* const feed1 = viewportFeeds[index1];
-	const feed2 = viewportFeeds[index2];
-	const swapX = feed2.x;
-	const swapY = feed2.y;
-	const swapWidth = feed2.boundsWidth;
-	const swapHeight = feed2.boundsHeight;
-	feed2.x = feed1.x;
-	feed2.y = feed1.y;
-	feed2.boundsWidth = feed1.boundsWidth;
-	feed2.boundsHeight = feed1.boundsHeight;
-	feed1.x = swapX;
-	feed1.y = swapY;
-	feed1.boundsWidth = swapWidth;
-	feed1.boundsHeight = swapHeight; */
 	const transform1: Partial<ObsSceneItemTransform> = {
 		positionX: viewportFeeds[index2].x,
 		positionY: viewportFeeds[index2].y,
@@ -888,13 +874,13 @@ function swapFeeds(
 	obs
 		.call('SetSceneItemTransform', {
 			sceneName: selectedFeedsScene,
-			sceneItemId: videoFeeds[index1].sceneItemId,
+			sceneItemId: viewportFeeds[index1].sceneItemId,
 			sceneItemTransform: transform1,
 		})
 		.then(() => {
 			return obs.call('SetSceneItemTransform', {
 				sceneName: selectedFeedsScene,
-				sceneItemId: videoFeeds[index2].sceneItemId,
+				sceneItemId: viewportFeeds[index2].sceneItemId,
 				sceneItemTransform: transform2,
 			});
 		})
@@ -902,7 +888,7 @@ function swapFeeds(
 			const swap = viewportFeeds[index2];
 			viewportFeeds[index2] = viewportFeeds[index1];
 			viewportFeeds[index1] = swap;
-			refreshViewportsDiv();
+			initOBS();
 			subscribeToChanges();
 		})
 		.catch(console.error);
@@ -1168,11 +1154,13 @@ function refreshFooter() {
 	footer.innerHTML = '';
 	footer.onclick = null;
 	if (cropItem) {
+		let button = document.createElement('div');
+		button.classList.add('icon', 'footer');
 		let icon = document.createElement('img');
 		icon.width = 16;
 		icon.classList.add('icon', 'footer');
 		icon.src = icons.revert;
-		icon.onclick = () => {
+		button.onclick = () => {
 			cropSide = null;
 			if (!cropItem) {
 				obsError('No cropItem');
@@ -1200,33 +1188,42 @@ function refreshFooter() {
 				})
 				.catch(obsError);
 		};
-		footer.appendChild(icon);
+    button.appendChild(icon);
+		footer.appendChild(button);
+    button = document.createElement('div');
+		button.classList.add('icon', 'footer');
 		icon = document.createElement('img');
 		icon.width = 16;
 		icon.classList.add('icon', 'footer');
 		icon.src = icons.check;
-		icon.onclick = () => {
+		button.onclick = () => {
 			cropItem = null;
 			cropSide = null;
 			refreshViewportsDiv();
 		};
-		footer.appendChild(icon);
+    button.appendChild(icon);
+		footer.appendChild(button);
 	} else {
-		let icon = document.createElement('img');
 		if (!connectedToOBS) {
+			const button = document.createElement('div');
+			button.classList.add('icon', 'footer');
+			const icon = document.createElement('img');
 			icon.width = 16;
 			icon.classList.add('icon', 'footer');
 			icon.src = icons.revert;
-			icon.onclick = () => {
+			button.onclick = () => {
 				connectToOBS();
 			};
-			footer.appendChild(icon);
+			button.appendChild(icon);
+			footer.appendChild(button);
 		}
-		icon = document.createElement('img');
+		const button = document.createElement('div');
+		button.classList.add('icon', 'footer');
+		const icon = document.createElement('img');
 		icon.width = 16;
 		icon.classList.add('icon', 'footer');
 		icon.src = `data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cpath%20fill%3D%27%23d2d2d2%27%20fill-rule%3D%27evenodd%27%20d%3D%27M32%2017.77V14.1l-4.434-1.468-1.027-2.497%202.008-4.21-2.582-2.592-4.137%202.085-2.492-1.033-1.574-4.4h-3.66L12.664%204.43l-2.539%201.03-4.203-2.01-2.586%202.583%202.082%204.152-1.031%202.497L0%2014.234v3.647l4.434%201.468%201.027%202.497-2.008%204.216%202.582%202.59%204.137-2.09%202.492%201.035%201.574%204.394h3.637l1.437-4.444%202.54-1.029%204.207%202.018%202.582-2.59-2.102-4.15%201.074-2.496L32%2017.72zm-16%205.105c-3.793%200-6.856-3.07-6.856-6.873S12.208%209.128%2016%209.128s6.856%203.07%206.856%206.874-3.063%206.873-6.856%206.873z%27%2F%3E%3C%2Fsvg%3E`;
-		icon.onclick = () => {
+		button.onclick = () => {
 			setTimeout(() => {
 				if (document.querySelectorAll('.pop-up').length == 0) {
 					const settingsBox = document.createElement('div');
@@ -1274,7 +1271,8 @@ function refreshFooter() {
 				}
 			}, 1);
 		};
-		footer.appendChild(icon);
+		button.appendChild(icon);
+		footer.appendChild(button);
 	}
 }
 
