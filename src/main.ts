@@ -9,8 +9,14 @@ let screenshotBase64 = '';
 let connectedToOBS = false;
 let obsConnectionError = '';
 let obsUpdateTimeout: NodeJS.Timeout | null = null;
-let cropItem: null | (SceneItemRef & Crop & { width: number; height: number }) =
-	null;
+let cropItem:
+	| null
+	| (SceneItemRef &
+			Crop & {
+				width: number;
+				height: number;
+				scaleX: number;
+			}) = null;
 let cropSide: 'left' | 'right' | 'top' | 'bottom' | null = null;
 let targetCrop: Crop | null = null;
 let initialCrop: Crop | null = null;
@@ -19,6 +25,8 @@ let cropWidthSide: 'left' | 'right' | null = null;
 let cropHeightSide: 'top' | 'bottom' | null = null;
 let clickLoc = { clientX: 0, clientY: 0 };
 let activelyCropping = false;
+let activeArAdjust = false;
+let targetAr: number | null = null;
 let currentSceneViewports: Viewport[] = [];
 let unassignedFeeds: Viewport['assignedFeeds'] = [];
 let currentSceneFeedScenes: number[] = [];
@@ -37,6 +45,7 @@ if (localStorage.getItem('obsPassword'))
 	obsPassword = localStorage.getItem('obsPassword')!;
 
 //setup cropping controls
+const arControl = document.getElementById('ar') as HTMLInputElement;
 const cropDiv = document.getElementById('primary-crop') as HTMLDivElement;
 const cropFrame = document.getElementById('crop-frame') as HTMLDivElement;
 const cropImg = document.getElementById('crop-image') as HTMLImageElement;
@@ -343,8 +352,70 @@ function cropItemToTarget(check?: 'check') {
 					cropItemToTarget('check');
 				}, 30);
 			})
-			.catch(obsError);
+			.catch((err) => {
+				activelyCropping = false;
+				obsError(err);
+			});
 	} else activelyCropping = false;
+}
+document.getElementById('thinify')!.onclick = () => {
+  arControl.value='0.75';
+	targetAr = 0.75;
+	adjustAr();
+};
+document.getElementById('revert-ar')!.onclick = () => {
+  arControl.value='1';
+	targetAr = 1;
+	adjustAr();
+};
+document.getElementById('wideify')!.onclick = () => {
+  arControl.value=(4/3).toString();
+	targetAr = 4/3;
+	adjustAr();
+};
+arControl.oninput = () => {
+	const val = parseFloat(arControl.value);
+	if (!isNaN(val)) {
+		targetAr = parseFloat(arControl.value);
+		adjustAr();
+	}
+};
+function adjustAr(check?: 'check') {
+	if (!cropItem || targetAr == null) {
+		obsError("Can't adjust aspect ratio without cropitem and targetAr");
+		activeArAdjust = false;
+		targetAr = null;
+		return;
+	}
+	if (activeArAdjust && !check) return;
+	activeArAdjust = true;
+	if (Math.round(targetAr * 300) != Math.round(cropItem.scaleX * 300)) {
+		const newTransform: Partial<ObsSceneItemTransform> = {
+			scaleX: targetAr,
+			scaleY: 1,
+		};
+		obs
+			.call('SetSceneItemTransform', {
+				sceneName: cropItem.sceneName,
+				sceneItemId: cropItem.sceneItemId,
+				sceneItemTransform: newTransform,
+			})
+			.then(() => {
+				if (cropItem && targetAr !== null) {
+					cropItem.scaleX = targetAr;
+				}
+				setTimeout(() => {
+					adjustAr('check');
+				}, 30);
+			})
+			.catch((err) => {
+				activeArAdjust = false;
+				obsError(err);
+			});
+	} else {
+		targetAr = null;
+		activeArAdjust = false;
+	}
 }
 document.getElementById('camera-crop')!.onclick = () => {
 	cropViewportFeed('camera');
@@ -450,8 +521,7 @@ function initOBS() {
 		obsError("Can't init, not connected");
 		return;
 	}
-	if (cropItem) return;
-	if (inInit) {
+	if (inInit || cropItem) {
 		initBuffered = true;
 		return;
 	}
@@ -490,16 +560,16 @@ function initOBS() {
 		.catch(obsError)
 		.then(() => {
 			inInit = false;
-      if (initBuffered) {
-        initBuffered = false;
-        if (obsUpdateTimeout) {
+			if (initBuffered) {
+				initBuffered = false;
+				if (obsUpdateTimeout) {
 					clearTimeout(obsUpdateTimeout);
 				}
 				obsUpdateTimeout = setTimeout(() => {
 					initOBS();
 					obsUpdateTimeout = null;
 				}, 200);
-      }
+			}
 		});
 }
 
@@ -581,6 +651,7 @@ function populateViewportsFromActiveFeed() {
 					right: sceneItemList[i].sceneItemTransform.cropRight,
 					top: sceneItemList[i].sceneItemTransform.cropTop,
 					bottom: sceneItemList[i].sceneItemTransform.cropBottom,
+					scaleX: sceneItemList[i].sceneItemTransform.scaleX,
 					width: sceneItemList[i].sceneItemTransform.sourceWidth,
 					height: sceneItemList[i].sceneItemTransform.sourceHeight,
 					x: sceneItemList[i].sceneItemTransform.positionX,
@@ -679,6 +750,7 @@ function populateViewportsFromActiveFeed() {
 async function refreshViewportsDiv() {
 	document.getElementById('viewports')!.classList.remove('hide');
 	document.getElementById('crop')!.classList.add('hide');
+	document.getElementById('aspect-ratio')!.classList.add('hide');
 	cropImg.src = '';
 	const listDiv = document.getElementById('viewports-list')!;
 	listDiv.innerHTML = '';
@@ -1169,6 +1241,22 @@ function refreshFooter() {
 	if (cropItem) {
 		let button = document.createElement('div');
 		button.classList.add('icon', 'footer');
+		button.style.width = 'auto';
+		button.style.padding = '0px 5px';
+		button.innerHTML = 'Aspect Ratio';
+		button.onclick = () => {
+			cropSide = null;
+			if (
+				document.getElementById('aspect-ratio')!.classList.contains('hide') &&
+				cropItem
+			) {
+				document.getElementById('aspect-ratio')!.classList.remove('hide');
+				arControl.value = cropItem.scaleX.toString();
+			} else document.getElementById('aspect-ratio')!.classList.add('hide');
+		};
+		footer.appendChild(button);
+		button = document.createElement('div');
+		button.classList.add('icon', 'footer');
 		let icon = document.createElement('img');
 		icon.width = 16;
 		icon.classList.add('icon', 'footer');
@@ -1188,6 +1276,8 @@ function refreshFooter() {
 						cropRight: 0,
 						cropTop: 0,
 						cropBottom: 0,
+						scaleX: 1,
+						scaleY: 1,
 					},
 				})
 				.then(() => {
@@ -1196,6 +1286,7 @@ function refreshFooter() {
 						cropItem.right = 0;
 						cropItem.top = 0;
 						cropItem.bottom = 0;
+						arControl.value = '1';
 					} else obsError('No cropItem');
 					refreshCropImage();
 				})
@@ -1311,6 +1402,7 @@ async function addSourceToViewport(source: ObsSceneItem, viewport: Viewport) {
 				right: 0,
 				top: 0,
 				bottom: 0,
+				scaleX: source.sceneItemTransform.scaleX,
 				width: source.sceneItemTransform.sourceWidth,
 				height: source.sceneItemTransform.sourceHeight,
 				x: viewport.x,
@@ -1386,7 +1478,6 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	const game1 = { left: -1, right: -1, top: -1, bottom: -1 };
 	const game2 = { left: -1, right: -1, top: -1, bottom: -1 };
 	temp = findGreenBlock(ctx, 'y', y1, y2, x1, true);
-	console.log(temp);
 	if (temp[1] < y2) game2.top = temp[1];
 	camera.bottom = temp[0];
 	temp = findGreenBlock(ctx, 'y', y1, 0, x1, true);
@@ -1408,9 +1499,6 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	game2.left = temp[1] == -1 ? 0 : temp[1];
 	temp = findGreenBlock(ctx, 'y', y2, height - 1, x1, true);
 	game2.bottom = temp[0] == -1 ? height - 1 : temp[0];
-	console.log(camera);
-	console.log(game1);
-	console.log(game2);
 	switch (cropType) {
 		case 'game1':
 			newItemRec = game1;

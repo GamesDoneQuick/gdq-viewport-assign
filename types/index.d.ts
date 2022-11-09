@@ -37,6 +37,7 @@ type Viewport = {
 			height: number;
 			x: number;
 			y: number;
+      scaleX: number;
 			boundsWidth: number;
 			boundsHeight: number;
 		})[];
