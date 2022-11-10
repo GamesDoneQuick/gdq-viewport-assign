@@ -1,9 +1,9 @@
 import obsWebsocketJs from 'obs-websocket-js';
 import { icons } from './icons';
 
-const autocropThreshold = 35;
-const gdqGreen = [1, 128, 1];
-const gdqGreen2 = [0, 255, 0];
+const autocropThreshold = 30; //35;
+/* const gdqGreen = [1, 128, 1];
+const gdqGreen2 = [0, 255, 0]; */
 let screenshotBase64 = '';
 
 let connectedToOBS = false;
@@ -359,18 +359,18 @@ function cropItemToTarget(check?: 'check') {
 	} else activelyCropping = false;
 }
 document.getElementById('thinify')!.onclick = () => {
-  arControl.value='0.75';
+	arControl.value = '0.75';
 	targetAr = 0.75;
 	adjustAr();
 };
 document.getElementById('revert-ar')!.onclick = () => {
-  arControl.value='1';
+	arControl.value = '1';
 	targetAr = 1;
 	adjustAr();
 };
 document.getElementById('wideify')!.onclick = () => {
-  arControl.value=(4/3).toString();
-	targetAr = 4/3;
+	arControl.value = (4 / 3).toString();
+	targetAr = 4 / 3;
 	adjustAr();
 };
 arControl.oninput = () => {
@@ -1461,6 +1461,7 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	const height = cropItem.height;
 	const y1 = 0.124 * height; //always game1 to webcam gap
 	const y2 = 0.546 * height; //game1 to game2 gap
+	const x0 = 0.05 * width; //game1 left checkstop, for when people are struggling at layouts
 	const x1 = 0.176 * width; //webcam y/ game2 y
 	const x2 = 0.718 * width; //game1 y
 	const canvas = document.createElement('canvas');
@@ -1474,9 +1475,9 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	ctx.drawImage(cropImg, 0, 0);
 	let temp: [number, number];
 	let newItemRec = { left: -1, right: -1, top: -1, bottom: -1 };
-	const camera = { left: -1, right: -1, top: -1, bottom: -1 };
-	const game1 = { left: -1, right: -1, top: -1, bottom: -1 };
-	const game2 = { left: -1, right: -1, top: -1, bottom: -1 };
+	let camera = { left: -1, right: width, top: -1, bottom: height };
+	let game1 = { left: -1, right: width, top: -1, bottom: height };
+	let game2 = { left: -1, right: width, top: -1, bottom: height };
 	temp = findGreenBlock(ctx, 'y', y1, y2, x1, true);
 	if (temp[1] < y2) game2.top = temp[1];
 	camera.bottom = temp[0];
@@ -1486,6 +1487,7 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	camera.left = temp[1] == -1 ? 0 : temp[1];
 	temp = findGreenBlock(ctx, 'x', x2, x1, y2, true);
 	game2.right = temp[0] > x1 - 1 ? temp[0] : -1;
+	temp = findGreenBlock(ctx, 'x', x2, x0, y2, true);
 	game1.left = temp[1];
 	temp = findGreenBlock(ctx, 'x', x1, x2, y1, true);
 	camera.right = temp[0] == -1 ? game1.left : temp[0];
@@ -1501,12 +1503,18 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	game2.bottom = temp[0] == -1 ? height - 1 : temp[0];
 	switch (cropType) {
 		case 'game1':
+			if (game1.left > game1.right || game1.top > game1.bottom)
+				game1 = { left: -1, right: width, top: -1, bottom: height };
 			newItemRec = game1;
 			break;
 		case 'game2':
+      if (game2.left > game2.right || game2.top > game2.bottom)
+				game2 = { left: -1, right: width, top: -1, bottom: height };
 			newItemRec = game2;
 			break;
 		case 'camera':
+      if (camera.left > camera.right || camera.top > camera.bottom)
+      camera = { left: -1, right: width, top: -1, bottom: height };
 			newItemRec = camera;
 			break;
 	}
@@ -1556,7 +1564,8 @@ function findGreenBlock(
 	start: number,
 	end: number,
 	otherAxis: number,
-	allowend?: boolean
+	allowend?: boolean,
+	print?: 'print'
 ): [number, number] {
 	let direction = 1;
 	if (start > end) direction = -1;
@@ -1568,6 +1577,7 @@ function findGreenBlock(
 	for (let i = start; (end - i) * direction >= 0; i += direction) {
 		let coords: [number, number] = [i, otherAxis];
 		if (axis == 'y') coords = [otherAxis, i];
+		if (print) console.log(compareToGreen(ctx, ...coords));
 		if (compareToGreen(ctx, ...coords) < autocropThreshold) {
 			if (curBlock[1] == i - direction) {
 				curBlock[1] = i;
@@ -1601,14 +1611,15 @@ function compareToGreen(
 	y: number
 ): number {
 	const pixel = Array.from(ctx.getImageData(x, y, 1, 1).data);
-	return Math.min(
+	return pixel[0] + pixel[2] + (pixel[1] > 100 ? 0 : 100);
+	/* Math.min(
 		Math.abs(pixel[0] - gdqGreen[0]) +
 			Math.abs(pixel[1] - gdqGreen[1]) +
 			Math.abs(pixel[2] - gdqGreen[2]),
 		Math.abs(pixel[0] - gdqGreen2[0]) +
 			Math.abs(pixel[1] - gdqGreen2[1]) +
 			Math.abs(pixel[2] - gdqGreen2[2])
-	);
+	); */
 }
 
 //Type Checking:
