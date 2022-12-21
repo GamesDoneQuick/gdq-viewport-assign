@@ -3,7 +3,9 @@ import { icons } from './icons';
 
 const autocropThreshold = 30; //35;
 /* const gdqGreen = [1, 128, 1];
-const gdqGreen2 = [0, 255, 0]; */
+const gdqGreen2 = [0, 255, 0]; 
+const gdqBlue = [0, 148, 255];
+*/
 let screenshotBase64 = '';
 
 let connectedToOBS = false;
@@ -39,10 +41,14 @@ let inInit = false;
 let initBuffered = false;
 let obsPort = 4455;
 let obsPassword = '';
+let keyColor: [number, number, number] = [0, 148, 255];
 if (localStorage.getItem('obsPort'))
 	obsPort = parseInt(localStorage.getItem('obsPort')!);
 if (localStorage.getItem('obsPassword'))
 	obsPassword = localStorage.getItem('obsPassword')!;
+const keyColorStorage = rgbStringToArray(localStorage.getItem('keyColor'));
+if (keyColorStorage) keyColor = keyColorStorage;
+let keyColorHsv = RGBToHSV(...keyColor);
 
 //setup cropping controls
 const arControl = document.getElementById('ar') as HTMLInputElement;
@@ -1360,6 +1366,18 @@ function refreshFooter() {
 					};
 					pwdDiv.appendChild(pwd);
 					settingsBox.appendChild(pwdDiv);
+					const colorDiv = document.createElement('div');
+					colorDiv.className = 'setup-item';
+					colorDiv.innerHTML = 'Key Color: ';
+					const color = document.createElement('input');
+					color.style.float = 'right';
+					color.value = keyColor.toString();
+					color.oninput = () => {
+						const maybe = rgbStringToArray(color.value);
+						if (maybe) keyColor = maybe;
+					};
+					colorDiv.appendChild(color);
+					settingsBox.appendChild(colorDiv);
 					document.onclick = (e) => {
 						if (
 							e.target !== settingsBox &&
@@ -1368,6 +1386,8 @@ function refreshFooter() {
 							document.onclick = null;
 							localStorage.setItem('obsPort', obsPort.toString());
 							localStorage.setItem('obsPassword', obsPassword);
+							localStorage.setItem('keyColor', keyColor.toString());
+							keyColorHsv = RGBToHSV(...keyColor);
 							footer.removeChild(settingsBox);
 						}
 					};
@@ -1460,7 +1480,7 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 	const width = cropItem.width;
 	const height = cropItem.height;
 	const y1 = 0.124 * height; //always game1 to webcam gap
-	const y2 = 0.546 * height; //game1 to game2 gap
+	const y2 = 0.57 * height; //game1 to game2 gap
 	const x0 = 0.05 * width; //game1 left checkstop, for when people are struggling at layouts
 	const x1 = 0.176 * width; //webcam y/ game2 y
 	const x2 = 0.718 * width; //game1 y
@@ -1508,13 +1528,13 @@ function cropViewportFeed(cropType: 'camera' | 'game1' | 'game2') {
 			newItemRec = game1;
 			break;
 		case 'game2':
-      if (game2.left > game2.right || game2.top > game2.bottom)
+			if (game2.left > game2.right || game2.top > game2.bottom)
 				game2 = { left: -1, right: width, top: -1, bottom: height };
 			newItemRec = game2;
 			break;
 		case 'camera':
-      if (camera.left > camera.right || camera.top > camera.bottom)
-      camera = { left: -1, right: width, top: -1, bottom: height };
+			if (camera.left > camera.right || camera.top > camera.bottom)
+				camera = { left: -1, right: width, top: -1, bottom: height };
 			newItemRec = camera;
 			break;
 	}
@@ -1577,8 +1597,8 @@ function findGreenBlock(
 	for (let i = start; (end - i) * direction >= 0; i += direction) {
 		let coords: [number, number] = [i, otherAxis];
 		if (axis == 'y') coords = [otherAxis, i];
-		if (print) console.log(compareToGreen(ctx, ...coords));
-		if (compareToGreen(ctx, ...coords) < autocropThreshold) {
+		if (print) console.log(compareToKey(ctx, ...coords));
+		if (compareToKey(ctx, ...coords) < autocropThreshold) {
 			if (curBlock[1] == i - direction) {
 				curBlock[1] = i;
 			} else curBlock = [i, i];
@@ -1605,21 +1625,24 @@ function findGreenBlock(
 	return greenBlock;
 }
 
-function compareToGreen(
+function compareToKey(
 	ctx: CanvasRenderingContext2D,
 	x: number,
 	y: number
 ): number {
-	const pixel = Array.from(ctx.getImageData(x, y, 1, 1).data);
-	return pixel[0] + pixel[2] + (pixel[1] > 100 ? 0 : 100);
-	/* Math.min(
-		Math.abs(pixel[0] - gdqGreen[0]) +
-			Math.abs(pixel[1] - gdqGreen[1]) +
-			Math.abs(pixel[2] - gdqGreen[2]),
-		Math.abs(pixel[0] - gdqGreen2[0]) +
-			Math.abs(pixel[1] - gdqGreen2[1]) +
-			Math.abs(pixel[2] - gdqGreen2[2])
-	); */
+	const rgbPixel = Array.from(ctx.getImageData(x, y, 1, 1).data);
+	const hsvPixel = RGBToHSV(rgbPixel[0], rgbPixel[1], rgbPixel[2]);
+	const smallHue = Math.min(hsvPixel[0], keyColorHsv[0]);
+	const largeHue = Math.max(hsvPixel[0], keyColorHsv[0]);
+	const hueDifference = Math.min(
+		largeHue - smallHue,
+		smallHue + 360 - largeHue
+	);
+	return (
+		(hueDifference / 360) * 100 +
+		Math.abs(hsvPixel[1] - keyColorHsv[1]) +
+		Math.abs(hsvPixel[2] - keyColorHsv[2])
+	);
 }
 
 //Type Checking:
@@ -1730,4 +1753,65 @@ function isObsBoundsType(test: any): test is ObsBoundsType {
 		'OBS_BOUNDS_NONE',
 	];
 	return (ObsBoundsTypes as string[]).indexOf(test) != -1;
+}
+
+function RGBToHSV(r: number, g: number, b: number) {
+	// Make r, g, and b fractions of 1
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	// Find greatest and smallest channel values
+	let v = Math.max(r, g, b);
+	const cmin = Math.min(r, g, b);
+	const delta = v - cmin;
+	let h = 0;
+	let s = 0;
+
+	//let h= v && ((v==r) ? (g-b)/c : ((v==g) ? 2+(b-r)/c : 4+(r-g)/c));
+
+	if (delta == 0) h = 0;
+	// Red is max
+	else if (v == r) h = ((g - b) / delta) % 6;
+	// Green is max
+	else if (v == g) h = (b - r) / delta + 2;
+	// Blue is max
+	else h = (r - g) / delta + 4;
+
+	h = Math.round(h * 60);
+
+	// Make negative hues positive behind 360°
+	if (h < 0) h += 360;
+
+	// Calculate saturation
+	s = delta == 0 ? 0 : delta / v;
+
+	// Multiply v and s by 100
+	s = +(s * 100).toFixed(1);
+	v = +(v * 100).toFixed(1);
+
+	return [h, s, v];
+}
+
+function rgbStringToArray(str: string | null): [number, number, number] | null {
+	try {
+		const possibleColor = JSON.parse('[' + str + ']');
+		if (
+			Array.isArray(possibleColor) &&
+			possibleColor.length === 3 &&
+			typeof possibleColor[0] === 'number' &&
+			possibleColor[0] >= 0 &&
+			possibleColor[0] <= 255 &&
+			typeof possibleColor[1] === 'number' &&
+			possibleColor[1] >= 0 &&
+			possibleColor[1] <= 255 &&
+			typeof possibleColor[2] === 'number' &&
+			possibleColor[2] >= 0 &&
+			possibleColor[2] <= 255
+		) {
+			return possibleColor as [number, number, number];
+		} else return null;
+	} catch (e) {
+		return null;
+	}
 }
