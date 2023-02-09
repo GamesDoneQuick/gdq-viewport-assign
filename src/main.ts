@@ -1241,18 +1241,23 @@ function refreshCropImage() {
     cropOutline.style.opacity = '1';
     cropFrame.style.opacity = '1';
   }
-  cropImg.src = screenshotBase64;
-  const canvas = document.createElement('canvas');
-  canvas.width = cropItem.width;
-  canvas.height = cropItem.height;
-  ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (ctx) {
-    ctx.drawImage(cropImg, 0, 0);
-    const rgbaPixel = Array.from(
-      ctx.getImageData(cropItem.width - 4, cropItem.height - 4, 1, 1).data
-    );
-    changeKeyColor([rgbaPixel[0], rgbaPixel[1], rgbaPixel[2]]);
+  cropImg.onload = () => {
+    cropImg.onload = null;
+    if (cropItem) {
+      const canvas = document.createElement('canvas');
+      canvas.width = cropItem.width;
+      canvas.height = cropItem.height;
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(cropImg, 0, 0);
+        const rgbaPixel = Array.from(
+          ctx.getImageData(cropItem.width - 4, cropItem.height - 4, 1, 1).data
+        );
+        changeKeyColor([rgbaPixel[0], rgbaPixel[1], rgbaPixel[2]]);
+      }
+    }
   }
+  cropImg.src = screenshotBase64;
 }
 
 function refreshFooter() {
