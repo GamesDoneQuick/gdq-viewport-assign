@@ -663,7 +663,6 @@ function populateViewportsFromActiveFeed() {
           y: sceneItemList[i].sceneItemTransform.positionY,
           boundsWidth: sceneItemList[i].sceneItemTransform.boundsWidth,
           boundsHeight: sceneItemList[i].sceneItemTransform.boundsHeight,
-          mode: sceneItemList[i].sceneItemTransform.boundsType === 'OBS_BOUNDS_SCALE_INNER' ? 'contain' : 'cover'
         });
       }
       let i = 0;
@@ -1026,7 +1025,7 @@ async function arrangeViewportFeeds(viewport: Viewport) {
     const newTransform: Partial<ObsSceneItemTransform> = {
       positionX: boxes[i].x,
       positionY: boxes[i].y,
-      boundsType: feed.mode === 'contain' ? 'OBS_BOUNDS_SCALE_INNER' : 'OBS_BOUNDS_SCALE_OUTER',
+      boundsType: 'OBS_BOUNDS_SCALE_INNER',
       boundsWidth: boxes[i].width,
       boundsHeight: boxes[i].height,
     };
@@ -1464,12 +1463,11 @@ async function addSourceToViewport(source: ObsSceneItem, viewport: Viewport) {
         y: viewport.y,
         boundsWidth: viewport.width,
         boundsHeight: viewport.height,
-        mode: viewport.name.indexOf('Camera') !== -1 ? 'cover' : 'contain'
       };
       const newTransform: Partial<ObsSceneItemTransform> = {
         positionX: viewport.x,
         positionY: viewport.y,
-        boundsType: newItem.mode === 'contain' ? 'OBS_BOUNDS_SCALE_INNER' : 'OBS_BOUNDS_SCALE_OUTER',
+        boundsType: 'OBS_BOUNDS_SCALE_INNER',
         boundsWidth: viewport.width,
         boundsHeight: viewport.height,
       };
