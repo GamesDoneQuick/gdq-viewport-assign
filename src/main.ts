@@ -526,7 +526,10 @@ function initOBS() {
     obsError("Can't init, not connected");
     return;
   }
-  if (inInit || cropItem) {
+  if (cropItem) {
+    return;
+  }
+  if (inInit) {
     initBuffered = true;
     return;
   }
@@ -1357,6 +1360,7 @@ function refreshFooter() {
     button.onclick = () => {
       cropItem = null;
       cropSide = null;
+      initOBS();
       refreshViewportsDiv();
     };
     button.appendChild(icon);
