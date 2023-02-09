@@ -92,8 +92,8 @@ type ObsBlendMode =
 	| 'OBS_BLEND_LIGHTEN'
 	| 'OBS_BLEND_DARKEN';
 type Crop = {
-	left: number;
-	right: number;
-	top: number;
-	bottom: number;
+	cropLeft: number;
+	cropRight: number;
+	cropTop: number;
+	cropBottom: number;
 };
