@@ -29,26 +29,31 @@
         image-rendering: pixelated;
       }
       #footer {
-				position: relative;
+        position: relative;
+        height: 37px;
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        padding: 0px 5px;
+      }
+      #footer-right, #footer-left {
         height: 37px;
         display: flex;
         align-items: center;
-        justify-content: flex-end;
-        padding: 0px 5px;
       }
       #main {
         flex-grow: 1;
         position: relative;
       }
       #viewports {
-				position: absolute;
+        position: absolute;
         width: 100%;
         height: 100%;
         display: flex;
         flex-direction: column;
       }
       #crop {
-				position: absolute;
+        position: absolute;
         width: 100%;
         height: 100%;
         display: flex;
@@ -70,7 +75,7 @@
         background-color: #3c404b;
         border-radius: 4px;
         padding: 5px 0px;
-        font-size: .8rem;
+        font-size: 0.8rem;
         font-weight: bold;
       }
       #warning {
@@ -235,9 +240,9 @@
         width: 31px;
         height: 27px;
         border-radius: 4px;
-				display: flex;
-				justify-content: center;
-				align-items: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
         margin: 0px 2px;
       }
       .crop-icon {
@@ -302,8 +307,8 @@
         top: 2px;
       }
       .setup-item {
-				white-space: nowrap;
-			}
+        white-space: nowrap;
+      }
     </style>
   </head>
   <body>
@@ -402,19 +407,42 @@
         </div>
       </div>
       <div id="aspect-ratio" class="hide">
-        <label for="ar" style="text-align: center;">Aspect Ratio Adjustment:</label>
-        <input type="range" id="ar" name="ar" min=".5" max="1.5" step="any"/>
-        <div style="width: 100%; line-height: 1rem;">
-          <div class="ar-legend" id="thinify" style="left: calc((100% - 1rem - 2px) * .25);">16:9 to 4:3</div>
-          <div class="ar-legend" id="revert-ar" style="left: calc((100% - 1rem - 2px) * .5);">No Change</div>
-          <div class="ar-legend" id="wideify" style="left: calc((100% - 1rem - 2px) * .8333);">4:3 to 16:9</div>
+        <label for="ar" style="text-align: center"
+          >Aspect Ratio Adjustment:</label
+        >
+        <input type="range" id="ar" name="ar" min=".5" max="1.5" step="any" />
+        <div style="width: 100%; line-height: 1rem">
+          <div
+            class="ar-legend"
+            id="thinify"
+            style="left: calc((100% - 1rem - 2px) * 0.25)"
+          >
+            16:9 to 4:3
+          </div>
+          <div
+            class="ar-legend"
+            id="revert-ar"
+            style="left: calc((100% - 1rem - 2px) * 0.5)"
+          >
+            No Change
+          </div>
+          <div
+            class="ar-legend"
+            id="wideify"
+            style="left: calc((100% - 1rem - 2px) * 0.8333)"
+          >
+            4:3 to 16:9
+          </div>
         </div>
       </div>
       <div id="warning">
         <div id="warning-msg">Loading...</div>
       </div>
     </div>
-    <div id="footer"></div>
+    <div id="footer">
+      <div id="footer-left">test</div>
+      <div id="footer-right"></div>
+    </div>
   </body>
   <script src=bundle.js></script>
 </html>
