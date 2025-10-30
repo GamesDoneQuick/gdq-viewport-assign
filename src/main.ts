@@ -1798,6 +1798,7 @@ function isObsInputKind(test: any): test is ObsInputKind {
     'ndi_source',
     'text_gdiplus_v2',
     'dshow_input',
+    'av_capture_input_v2',
     'window_capture',
     'text_ft2_source_v2',
   ];
